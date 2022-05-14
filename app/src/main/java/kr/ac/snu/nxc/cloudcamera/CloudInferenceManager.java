@@ -36,9 +36,9 @@ public class CloudInferenceManager {
     private final static String TAG = "CloudShotManager";
     private static final String AROHA_TAG = "AROHA";
 
-    private static final String HOST = "147.46.130.213";
+    private static final String HOST = "147.46.244.85";
 //    private static final String HOST = "192.168.1.5";
-    private static final int PORT = 8485;
+    private static final int PORT = 3030;
     private static final int PORT2 = 8486;
 
     //Socket MSG
@@ -91,8 +91,12 @@ public class CloudInferenceManager {
 
     InferenceCallback mCallback;
 
+    public ApiClient api;
+
     public CloudInferenceManager(Context context, InferenceCallback callback) {
         mContext = context;
+
+        api = new ApiClient(HOST, PORT);
 
         HandlerThread ht = new HandlerThread("CloudShotSocket");
         ht.start();
@@ -140,8 +144,8 @@ public class CloudInferenceManager {
 
     public void setState(boolean enabled) {
         if (enabled) {
-            mSocketHandler.postDelayed(new InitSocketRunnable(), INIT_SOCKET_INTERVAL);
-
+            //mSocketHandler.postDelayed(new InitSocketRunnable(), INIT_SOCKET_INTERVAL);
+            mSocketConn = true;
         } else {
             closeSocket();
         }
@@ -217,7 +221,8 @@ public class CloudInferenceManager {
     public void inferenceImage(int frameIndex, byte[] buffer, int encodedSize) {
         CCLog.d(TAG, "inferenceImage : " + frameIndex);
 //        mEncodingHandler.post(new EncodingFrameRunnable(frameIndex, ccImage));
-        mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));
+        api.uploadFile(buffer);
+       // mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));
     }
 
     public void encodingFrame(int frameIndex, CCImage ccImage) {

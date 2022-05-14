@@ -19,6 +19,7 @@
         android:supportsRtl="true"
         android:largeHeap="true"
         android:theme="@style/Theme.CloudCamera"
+        android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true">
         <activity
             android:name="kr.ac.snu.nxc.cloudcamera.MainActivity"

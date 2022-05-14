@@ -107,6 +107,12 @@ public final class CCVideoStreamWriter {
         mBitPerPixel = bitPerPixel;
     }
 
+    public void setBitRate (float bitrate) {
+        mBitPerPixel = bitrate/(FPS * mWidth * mHeight);
+        CCLog.d(TAG, "Bitrate: "+ bitrate+ " Bitperpixel: "+ mBitPerPixel);
+    }
+
+
     public boolean close() {
         boolean success = true;
 

@@ -105,8 +105,9 @@ public class GalleryActivity extends AppCompatActivity {
                 CCLog.d(TAG, "Dir Name : " + imageItem.mVideoPath);
 
                 Intent intent = new Intent(GalleryActivity.this, CodecActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 intent.putExtra(CCConstants.KEY_VIDEO_PATH, imageItem.mVideoPath);
-                startActivity(intent);
+                startActivityIfNeeded(intent, 0);
             }
         });
 
@@ -168,6 +169,7 @@ public class GalleryActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
+        CCLog.d(TAG,"onResume");
         readVideoFiles();
     }
 
@@ -284,6 +286,7 @@ public class GalleryActivity extends AppCompatActivity {
 
         @Override
         public void run() {
+            CCLog.d(TAG, mThumbnailItem.mVideoPath);
             mThumbnailItem.mBitmap = CCUtils.readThumbnail(mThumbnailItem.mVideoPath, 180, 240);
 
             mImageUpdateHandler.sendEmptyMessage(mIndex);

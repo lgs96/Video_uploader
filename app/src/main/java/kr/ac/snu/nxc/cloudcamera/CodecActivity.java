@@ -102,7 +102,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     public static LinkedBlockingQueue<Integer> SFQueue = new LinkedBlockingQueue<>(5);
     public static LinkedBlockingQueue<Integer> QPQueue = new LinkedBlockingQueue<>(5);
-//    public static LinkedBlockingQueue<byte[]> SendQueue = new LinkedBlockingQueue<byte[]>(20);
+    //    public static LinkedBlockingQueue<byte[]> SendQueue = new LinkedBlockingQueue<byte[]>(20);
 //    public static LinkedBlockingQueue<Pair<Integer, CCImage>> EncodingQueue = new LinkedBlockingQueue<Pair<Integer, CCImage>>(20);
     public static ArrayList<Integer> SFHistory = new ArrayList<Integer>();
     public static ArrayList<Integer> QPHistory = new ArrayList<Integer>();
@@ -291,7 +291,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mVideoEncodingHandler = new Handler(ht.getLooper());
 
         mInferenceManager = new CloudInferenceManager(mContext, this);
-        
+
         mButtonJpgInference = (Button) findViewById(R.id.button_jpg_inference);
         mButtonVideoInference = (Button) findViewById(R.id.button_video_inference);
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
@@ -333,7 +333,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mEncodingFrameIndex = 0;
                 mCodecHandler.post(new VideoDecoder());
 //                mCodecHandler.post(new VideoDecoder());
-                
+
                 String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 //SET Video Config
