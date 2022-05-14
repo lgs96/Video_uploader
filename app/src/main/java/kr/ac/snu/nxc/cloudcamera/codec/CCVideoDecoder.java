@@ -152,7 +152,7 @@ public class CCVideoDecoder {
                 //mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
                 mInputDone = true;
             } else {
-                CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId);
+                CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId + " End of stream: " + mEndOfStream);
                 long presentationTimeUs = mMediaExtractor.getSampleTime();
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
                 mMediaExtractor.advance();

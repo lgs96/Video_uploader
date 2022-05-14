@@ -506,7 +506,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
                 closeDecoder();
 
-                runUpload ();
+                //runUpload ();
             }
 
             public void onDecodedImage(int index, CCImage ccImage) {
