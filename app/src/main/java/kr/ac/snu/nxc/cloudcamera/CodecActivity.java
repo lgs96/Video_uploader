@@ -261,8 +261,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         mEncodingImageQueue.add(ccImage);
 //                        mCCVideoReader.returnQueueImage(ccImage);
                         mCCVideoWriter.put(ccImage);
-
-
 //                        mEncodingImageQueue.add(ccImage);
                     } else {
                         CCLog.d(TAG, "Codec finish");
@@ -342,11 +340,20 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
+
                 //SET Video Config
+
+                if (mEditBitrate.getText().toString().trim().length() > 0){
+                    float bitrate = Float.parseFloat(mEditBitrate.getText().toString());
+                    bitrate = bitrate*1e6f;
+                    mCCVideoWriter.setBitRate(bitrate);
+                    mCCVideoWriter.start();
+                }
+                else{
                     mCCVideoWriter.setBitPerPixel(0.18f);
                     mEncoderFinish = false;
                     mCCVideoWriter.start();
-
+                }
             }
         });
 
@@ -455,6 +462,33 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mTextViewJpgQuality.setText("" + mJpgQuality);
     }
 
+    public void runUpload (){
+        mIsVideoEncoding = true;
+        mDecodeBitmapQueue.clear();
+        mDecodeFrameQueue.clear();
+        mInferenceManager.startInference(CCConstants.InferenceInputType.INFERENCE_VIDEO);
+        mEncodingFrameIndex = 0;
+        mCodecHandler.post(new VideoDecoder());
+//                mCodecHandler.post(new VideoDecoder());
+
+        String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
+        mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
+
+        //SET Video Config
+
+        if (mEditBitrate.getText().toString().trim().length() > 0){
+            float bitrate = Float.parseFloat(mEditBitrate.getText().toString());
+            bitrate = bitrate*1e6f;
+            mCCVideoWriter.setBitRate(bitrate);
+            mCCVideoWriter.start();
+        }
+        else{
+            mCCVideoWriter.setBitPerPixel(0.18f);
+            mEncoderFinish = false;
+            mCCVideoWriter.start();
+        }
+    }
+
     public class VideoDecoder implements Runnable {
         CCVideoReader.CCVideoReaderListener mReaderListener = new CCVideoReader.CCVideoReaderListener() {
             @Override
@@ -462,9 +496,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "onFinish");
                 mStatusText = "Decode Finish";
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
-                closeDecoder();
-
-//                mCodecHandler.post(new VideoDecoder());
+                //closeDecoder();
+                mCodecHandler.post(new VideoDecoder());
             }
 
             public void onError(String errorMsg) {
@@ -472,6 +505,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mStatusText = "Video Decoding Fail : " + errorMsg;
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
                 closeDecoder();
+
+                runUpload ();
             }
 
             public void onDecodedImage(int index, CCImage ccImage) {

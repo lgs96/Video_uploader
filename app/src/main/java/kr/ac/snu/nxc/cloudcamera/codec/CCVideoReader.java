@@ -68,6 +68,7 @@ public class CCVideoReader {
             try {
                 mExtractor = new MediaExtractor();
                 mExtractor.setDataSource(mSavedFilePath);
+
                 mTrackIndexOfVideo = selectTrack(mExtractor);
                 if (mTrackIndexOfVideo < 0) {
                     CCLog.e(TAG, "Error no video track");
@@ -80,9 +81,12 @@ public class CCVideoReader {
                 MediaFormat mediaFormat = mExtractor.getTrackFormat(mTrackIndexOfVideo);
                 String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
 
+
+                CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
                 mDecoder.setListener(mListener);
                 mDecoder.start(mime);
+                CCLog.d(TAG, "CCVideoReader Decoder no error");
             } catch (Exception e) {
                 CCLog.e(TAG, "CCVideoReader Exception");
                 if (mReaderListener != null) {
