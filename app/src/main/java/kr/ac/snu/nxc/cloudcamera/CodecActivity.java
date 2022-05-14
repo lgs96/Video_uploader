@@ -13,6 +13,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -112,6 +113,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     Button mButtonVideoInference = null;
 
     TextView mTextViewStatus = null;
+    TextView mTextViewPerf = null;
+    EditText mEditBitrate = null;
+
     ImageView mImageViewDecodeFrame;
     ImageView mImageViewInferenceFrame;
 
@@ -295,6 +299,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mButtonJpgInference = (Button) findViewById(R.id.button_jpg_inference);
         mButtonVideoInference = (Button) findViewById(R.id.button_video_inference);
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
+        mTextViewPerf = (TextView) findViewById(R.id.text_view_perf_status);
+        mEditBitrate= (EditText) findViewById(R.id.edit_bitrate);
         mImageViewDecodeFrame = (ImageView) findViewById(R.id.image_view_decode_frame);
         mImageViewInferenceFrame = (ImageView) findViewById(R.id.image_view_inference_frame);
 
@@ -337,9 +343,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 //SET Video Config
-                mCCVideoWriter.setBitPerPixel(0.18f);
-                mEncoderFinish = false;
-                mCCVideoWriter.start();
+                    mCCVideoWriter.setBitPerPixel(0.18f);
+                    mEncoderFinish = false;
+                    mCCVideoWriter.start();
 
             }
         });

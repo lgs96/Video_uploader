@@ -83,6 +83,7 @@ public final class CCVideoWriter {
             mEncoder.setColorFormat(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
             mEncoder.setBitrate(getBitrate());
             mEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
+
             mEncoder.start();
         }
     }

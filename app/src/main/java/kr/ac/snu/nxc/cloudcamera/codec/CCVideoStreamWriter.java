@@ -81,6 +81,9 @@ public final class CCVideoStreamWriter {
 
             mFrameCount = mCCImageList.size();
 
+
+            CCLog.d(TAG, "FPS/Bitrate/BPP: "+FPS +" "+ " " +getBitrate()+ " "+ mBitPerPixel);
+
             mEncoder = new CCVideoStreamEncoder();
 //            mEncoder.setImageList(mCCImageList);
             mEncoder.setSize(mWidth, mHeight);
