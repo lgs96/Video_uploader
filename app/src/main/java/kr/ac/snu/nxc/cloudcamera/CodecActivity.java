@@ -64,6 +64,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     static final int MSG_IMAGE_LOADING = 0;
     static final int MSG_UPDATE_STATUS = MSG_IMAGE_LOADING + 1;
     static final int MSG_DECODE_FRAME = MSG_IMAGE_LOADING + 3;
+    static final int MSG_UPDATE_PERF = MSG_IMAGE_LOADING + 4;
 
     private Context mContext = null;
 
@@ -292,8 +293,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         ht.start();
         mVideoEncodingHandler = new Handler(ht.getLooper());
 
-        mInferenceManager = new CloudInferenceManager(mContext, this);
-
         mButtonJpgInference = (Button) findViewById(R.id.button_jpg_inference);
         mButtonVideoInference = (Button) findViewById(R.id.button_video_inference);
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
@@ -311,6 +310,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mImageViewJpgQualityMinus = (ImageView) findViewById(R.id.image_view_jpg_quality_minus);
         mTextViewJpgQuality = (TextView) findViewById(R.id.text_view_jpg_quality);
         mTextViewJpgQuality.setText("" + mJpgQuality);
+
+        mInferenceManager = new CloudInferenceManager(mContext, this);
+        mInferenceManager.setPerfTextView(mTextViewPerf);
 
         mCodecThread = new HandlerThread(("Codec"));
         mCodecThread.start();

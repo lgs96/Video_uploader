@@ -7,6 +7,8 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.util.Pair;
+import android.widget.Button;
+import android.widget.TextView;
 
 import org.apache.commons.net.ntp.NTPUDPClient;
 import org.apache.commons.net.ntp.TimeInfo;
@@ -92,11 +94,21 @@ public class CloudInferenceManager {
     InferenceCallback mCallback;
 
     public ApiClient api;
+    public String response_body;
+    TextView mPerftv;
+
+    ApiClient.UploadListener mUploadListener = new ApiClient.UploadListener() {
+        @Override
+        public void onResponse(String response) {
+            mPerftv.setText("Performance: " + response);
+        }
+    };
 
     public CloudInferenceManager(Context context, InferenceCallback callback) {
         mContext = context;
 
         api = new ApiClient(HOST, PORT);
+        api.setListner(mUploadListener);
 
         HandlerThread ht = new HandlerThread("CloudShotSocket");
         ht.start();
@@ -140,6 +152,10 @@ public class CloudInferenceManager {
 //            }
 //        }).start();
 
+    }
+
+    public void setPerfTextView(TextView tv){
+        mPerftv = tv;
     }
 
     public void setState(boolean enabled) {
@@ -522,6 +538,5 @@ public class CloudInferenceManager {
         buffer.flip();//need flip
         return buffer.getLong();
     }
-
 }
 

@@ -2,6 +2,7 @@ package kr.ac.snu.nxc.cloudcamera;
 
 import android.net.Uri;
 import android.os.FileUtils;
+import android.widget.TextView;
 
 import com.google.firebase.firestore.auth.User;
 import com.google.gson.Gson;
@@ -38,6 +39,7 @@ public class ApiClient {
     private int port;
     public RetrofitClientInstance r1;
     public String BASE_URL_API;
+    public UploadListener mListner;
 
     public ApiClient (String host, int port){
         this.host = host;
@@ -128,7 +130,10 @@ public class ApiClient {
             @Override
             public void onResponse(Call<Object> call, Response<Object> response) {
                 if (response.isSuccessful()){
-                    CCLog.d(TAG,"Upload Success: " + new Gson().toJson(response.body())); //new Gson().toJson(response.body()));
+                    String response_body = new Gson().toJson(response.body());
+                    CCLog.d(TAG,"Upload Success: " + response_body);
+                    mListner.onResponse(response_body);
+                    //new Gson().toJson(response.body()));
                 } else {
                     CCLog.d(TAG,"Upload Error: " + response.message());
                 }
@@ -142,5 +147,12 @@ public class ApiClient {
         });
     }
 
+    public void setListner(UploadListener Listner){
+        mListner = Listner;
+    }
+
+    public interface UploadListener{
+        public void onResponse(String response);
+    }
 
 }
