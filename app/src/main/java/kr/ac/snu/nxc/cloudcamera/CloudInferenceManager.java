@@ -12,6 +12,8 @@ import android.widget.TextView;
 
 import org.apache.commons.net.ntp.NTPUDPClient;
 import org.apache.commons.net.ntp.TimeInfo;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 import java.io.DataInputStream;
@@ -96,11 +98,20 @@ public class CloudInferenceManager {
     public ApiClient api;
     public String response_body;
     TextView mPerftv;
+    private CodecActivity codec_activity;
+
+    long network_last_milli = System.currentTimeMillis();
 
     ApiClient.UploadListener mUploadListener = new ApiClient.UploadListener() {
         @Override
-        public void onResponse(String response) {
-            mPerftv.setText("Performance: " + response);
+        public void onResponse(String response) throws JSONException {
+            mPerftv.setText("Network performance: " + response);
+                JSONObject jObject = new JSONObject(response);
+                String fps = jObject.getString("fps");
+                String throughput = jObject.getString("th");
+
+                codec_activity.network_fps = Float.parseFloat(fps);
+                codec_activity.network_th = Float.parseFloat(throughput);
         }
     };
 
@@ -154,8 +165,9 @@ public class CloudInferenceManager {
 
     }
 
-    public void setPerfTextView(TextView tv){
+    public void setPerfTextView(TextView tv, CodecActivity c){
         mPerftv = tv;
+        codec_activity = c;
     }
 
     public void setState(boolean enabled) {

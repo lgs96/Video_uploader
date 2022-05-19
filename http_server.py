@@ -33,9 +33,10 @@ async def post_handler(request):
     object_size = int(request.headers.get("content-length"))
 
     if (content_upload_time - last_milli > 1000):
+        time_gap = content_upload_time - last_milli 
         last_milli = content_upload_time
-        fps = counter
-        th = recv_size*8/1e6
+        fps = round(counter/((time_gap)/1000),2)
+        th = round(recv_size*8/1e6,2)
         counter = 0
         recv_size = 0
     else:

@@ -39,6 +39,7 @@ import kr.ac.snu.nxc.cloudcamera.library.ImageUtils;
 import kr.ac.snu.nxc.cloudcamera.util.CCConstants;
 import kr.ac.snu.nxc.cloudcamera.util.CCImage;
 import kr.ac.snu.nxc.cloudcamera.util.CCLog;
+import kr.ac.snu.nxc.cloudcamera.util.CCSave;
 import kr.ac.snu.nxc.cloudcamera.util.CCUtils;
 
 import static java.lang.Math.max;
@@ -114,6 +115,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     Button mButtonVideoInference = null;
 
     TextView mTextViewStatus = null;
+    TextView mTextViewEncode = null;
     TextView mTextViewPerf = null;
     EditText mEditBitrate = null;
 
@@ -149,6 +151,23 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     boolean mDebugShowInference = false;
     int mEncodingFrameIndex = 0;
 
+    // To save fps/throughput in csv file
+    boolean is_save = true;
+    long encode_last_milli= System.currentTimeMillis();
+    long decode_last_milli = System.currentTimeMillis();
+
+    int encode_frame = 0;
+    int decode_frame = 0;
+
+    float encode_fps = 0;
+    float decode_fps = 0;
+
+    float encode_byte = 0f;
+    float decode_byte = 0f;
+
+    public float network_fps = 0f;
+    public float network_th = 0f;
+
     @Override
     public void onEncodingFinish(CCImage decodeImage, CCImage inferenceImage, double encodeTime) {
         mCCVideoReader.returnQueueImage(decodeImage);
@@ -174,8 +193,12 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         @Override
         public boolean handleMessage(Message msg) {
             if (msg.what == MSG_DECODE_FRAME) {
-                String status = "Video Decode : " + (total_frameCount) + " frame";
+                String status = "Video Decode : " + (total_frameCount) + " frame/fps: " + decode_fps;
                 mTextViewStatus.setText(status);
+
+                String status2 = "Video Encode : " + (mEncodingFrameIndex) + " frame/fps: " + encode_fps;
+                mTextViewEncode.setText(status2);
+
                 try {
 //                    int frameIndex = msg.arg1;
 
@@ -197,6 +220,38 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         mInferenceManager.inferenceImage(frameIndex, decodeFrame);
                     }
                     total_frameCount += 1;
+                    decode_frame += 1;
+                    decode_byte += decodeFrame.getHeight()*decodeFrame.getWidth()*4/(1024*1024);
+
+                    long current_milli = System.currentTimeMillis();
+                    CCLog.d(TAG, "Decode frame byte: " + decode_frame + " " + decode_byte);
+                    long time_gap = (current_milli - decode_last_milli);
+                    if (time_gap > 1000) {
+                        decode_last_milli = current_milli;
+
+                        float fps_f = decode_frame/((float)time_gap/1000f);
+                        float th_f = decode_byte/((float)time_gap/1000f);
+                        decode_fps = (Math.round(fps_f*100f)/100.0f);
+                        String fps = Float.toString(Math.round(fps_f*100f)/100.0f);
+                        String throughput = Float.toString(Math.round(th_f*100f)/100.0f);
+                        String content = fps + "," + throughput;
+
+                        float fps_e = encode_frame/((float)time_gap/1000f);
+                        float th_e = encode_byte/((float)time_gap/1000f);
+                        encode_fps = (Math.round(fps_e*100f)/100.0f);
+                        fps = Float.toString(Math.round(fps_e*100f)/100.0f);
+                        throughput = Float.toString(Math.round(th_e*100f)/100.0f);
+
+                        content += ","+ fps + "," + throughput +","+network_fps+","+network_th;
+
+                        CCLog.d(TAG, "CCSave save " + content);
+                        mSaveHandler.post(new CCSave (is_save, content, "record")) ;
+                        decode_frame = 0;
+                        decode_byte = 0;
+                        encode_frame = 0;
+                        encode_byte = 0;
+                        CCLog.d(TAG, "Decoding record is " + content);
+                    }
 
                 } catch (Exception e) {
 
@@ -213,6 +268,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     boolean mEncoderFinish = false;
     boolean mDecoderFinish = false;
     private Object mLock = new Object();
+
+    HandlerThread mSaveThread = null;
+    Handler mSaveHandler = null;
 
     CCVideoStreamWriter mCCVideoWriter;
     CCVideoStreamWriter.CCVideoWriterListener mWriterListener = new CCVideoStreamWriter.CCVideoWriterListener() {
@@ -238,6 +296,39 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             mInferenceManager.inferenceImage(mEncodingFrameIndex, buffer.array(), size);
 
             mEncodingFrameIndex++;
+            encode_frame += 1;
+            encode_byte += (float)size*8/(1024*1024);
+
+/*
+            long current_milli = System.currentTimeMillis();
+            CCLog.d(TAG, "Encode frame byte: " + encode_frame + " " + encode_byte + " " + size);
+            long time_gap = (current_milli - encode_last_milli);
+            if (time_gap > 1000) {
+                encode_last_milli = current_milli;
+
+                float fps_f = 0f;
+                float th_f = 0f;
+
+                try {
+                    fps_f = encode_frame / ((float) time_gap / 1000f);
+                    th_f = encode_byte / ((float) time_gap / 1000f);
+                }
+                catch (Exception e){
+
+                }
+
+                CCLog.d(TAG, "CCSave save " + fps_f + " "+th_f);
+
+                encode_fps = (Math.round(fps_f*100f)/100.0f);
+                String fps = Float.toString(encode_fps);
+                String throughput = Float.toString(Math.round(th_f*100f)/100.0f);
+                String content = fps + "," + throughput;
+                mSaveHandler.post(new CCSave(is_save, content, "encode"));
+                encode_frame = 0;
+                encode_byte = 0;
+            }
+ */
+
         }
     };
 
@@ -296,6 +387,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mButtonJpgInference = (Button) findViewById(R.id.button_jpg_inference);
         mButtonVideoInference = (Button) findViewById(R.id.button_video_inference);
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
+        mTextViewEncode = (TextView) findViewById(R.id.text_view_codec_status2);
         mTextViewPerf = (TextView) findViewById(R.id.text_view_perf_status);
         mEditBitrate= (EditText) findViewById(R.id.edit_bitrate);
         mImageViewDecodeFrame = (ImageView) findViewById(R.id.image_view_decode_frame);
@@ -312,11 +404,15 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mTextViewJpgQuality.setText("" + mJpgQuality);
 
         mInferenceManager = new CloudInferenceManager(mContext, this);
-        mInferenceManager.setPerfTextView(mTextViewPerf);
+        mInferenceManager.setPerfTextView(mTextViewPerf, this);
 
         mCodecThread = new HandlerThread(("Codec"));
         mCodecThread.start();
         mCodecHandler = new Handler(mCodecThread.getLooper());
+
+        mSaveThread = new HandlerThread(("Save"));
+        mSaveThread.start();
+        mSaveHandler = new Handler(mSaveThread.getLooper());
 
         mButtonJpgInference.setOnClickListener(new View.OnClickListener() {
             @Override

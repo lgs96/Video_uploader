@@ -9,6 +9,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 
+import org.json.JSONException;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -131,8 +133,12 @@ public class ApiClient {
             public void onResponse(Call<Object> call, Response<Object> response) {
                 if (response.isSuccessful()){
                     String response_body = new Gson().toJson(response.body());
+                    try {
+                        mListner.onResponse(response_body);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
                     CCLog.d(TAG,"Upload Success: " + response_body);
-                    mListner.onResponse(response_body);
                     //new Gson().toJson(response.body()));
                 } else {
                     CCLog.d(TAG,"Upload Error: " + response.message());
@@ -152,7 +158,7 @@ public class ApiClient {
     }
 
     public interface UploadListener{
-        public void onResponse(String response);
+        public void onResponse(String response) throws JSONException;
     }
 
 }
