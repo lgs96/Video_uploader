@@ -40,7 +40,7 @@ public class CloudInferenceManager {
     private final static String TAG = "CloudShotManager";
     private static final String AROHA_TAG = "AROHA";
 
-    private static final String HOST = "147.46.244.85";
+    private static final String HOST = "seoul.overlinkapp.org";
 //    private static final String HOST = "192.168.1.5";
     private static final int PORT = 3030;
     private static final int PORT2 = 8486;

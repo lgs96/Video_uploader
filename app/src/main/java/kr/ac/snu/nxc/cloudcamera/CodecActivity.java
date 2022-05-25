@@ -36,6 +36,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoReader;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoStreamWriter;
 import kr.ac.snu.nxc.cloudcamera.library.ImageUtils;
+import kr.ac.snu.nxc.cloudcamera.thermalreader.ThermalReader;
 import kr.ac.snu.nxc.cloudcamera.util.CCConstants;
 import kr.ac.snu.nxc.cloudcamera.util.CCImage;
 import kr.ac.snu.nxc.cloudcamera.util.CCLog;
@@ -117,6 +118,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     TextView mTextViewStatus = null;
     TextView mTextViewEncode = null;
     TextView mTextViewPerf = null;
+    TextView mTextViewThermal = null;
+    TextView mTextViewCpu = null;
     EditText mEditBitrate = null;
 
     ImageView mImageViewDecodeFrame;
@@ -168,6 +171,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     public float network_fps = 0f;
     public float network_th = 0f;
 
+    // Thermal reader
+    ThermalReader thermalReader;
+
     @Override
     public void onEncodingFinish(CCImage decodeImage, CCImage inferenceImage, double encodeTime) {
         mCCVideoReader.returnQueueImage(decodeImage);
@@ -198,6 +204,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 String status2 = "Video Encode : " + (mEncodingFrameIndex) + " frame/fps: " + encode_fps;
                 mTextViewEncode.setText(status2);
+                mTextViewThermal.setText("Temp: " + thermalReader.temp_info);
+                mTextViewCpu.setText("CPU: " +thermalReader.cpu_info);
 
                 try {
 //                    int frameIndex = msg.arg1;
@@ -245,7 +253,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         content += ","+ fps + "," + throughput +","+network_fps+","+network_th;
 
                         CCLog.d(TAG, "CCSave save " + content);
-                        mSaveHandler.post(new CCSave (is_save, content, "record")) ;
+                        //mSaveHandler.post(new CCSave (is_save, content, "record")) ;
+                        thermalReader.GetCodecString(content);
                         decode_frame = 0;
                         decode_byte = 0;
                         encode_frame = 0;
@@ -389,6 +398,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
         mTextViewEncode = (TextView) findViewById(R.id.text_view_codec_status2);
         mTextViewPerf = (TextView) findViewById(R.id.text_view_perf_status);
+        mTextViewThermal = (TextView) findViewById(R.id.text_view_temp_status);
+        mTextViewCpu = (TextView) findViewById(R.id.text_view_cpu_status);
         mEditBitrate= (EditText) findViewById(R.id.edit_bitrate);
         mImageViewDecodeFrame = (ImageView) findViewById(R.id.image_view_decode_frame);
         mImageViewInferenceFrame = (ImageView) findViewById(R.id.image_view_inference_frame);
@@ -439,19 +450,22 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
 
-                //SET Video Config
+                thermalReader = new ThermalReader();
+                thermalReader.readThermal();
 
+                //SET Video Config
+                float bpp = 0.18f;
                 if (mEditBitrate.getText().toString().trim().length() > 0){
-                    float bitrate = Float.parseFloat(mEditBitrate.getText().toString());
-                    bitrate = bitrate*1e6f;
-                    mCCVideoWriter.setBitRate(bitrate);
+                    bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
+                    mCCVideoWriter.setBitPerPixel(bpp);
                     mCCVideoWriter.start();
                 }
                 else{
-                    mCCVideoWriter.setBitPerPixel(0.18f);
+                    mCCVideoWriter.setBitPerPixel(bpp);
                     mEncoderFinish = false;
                     mCCVideoWriter.start();
                 }
+                thermalReader.save_string = mWidth + "_"+ bpp;
             }
         });
 
