@@ -67,7 +67,7 @@ public class ThermalReader {
     public String save_string;
     public boolean run_trace = false;
     public boolean run_record = false;
-    private final int record_time = 310;
+    private final int record_time = 5000;
     public String codec_content;
     public String temp_info = "";
     public String cpu_info = "";
@@ -114,17 +114,24 @@ public class ThermalReader {
         for (int i = 0; i < Config.temp_index.size(); i++){
             temp_values[i] = new ArrayList<String>();
             temp_values[i].add(temp_types.get(i));
+            types_csv = types_csv + "," + temp_types.get(i);
         }
         for (int i = 0; i < Config.cooling_index.size(); i++){
             cooling_values[i] = new ArrayList<String>();
             cooling_values[i].add(cooling_types.get(i));
+            types_csv = types_csv + "," + cooling_types.get(i);
         }
         for (int i = 0; i < Config.cpu_index.size(); i++){
             cpu_values[i] = new ArrayList<String>();
             cpu_values[i].add(cpu_types.get(i));
+            types_csv = types_csv + "," + cpu_types.get(i);
         }
 
-        CCLog.d(TAG, "Success to initialize");
+        types_csv += "fps (decode),throughput (decode),fps (encode),throughput (encode),fps (network),throughput (network)";
+        types_csv += "\n";
+
+        CCLog.d(TAG, "Types csv is " + types_csv);
+
     }
 
     public class StartTrace implements Runnable {
@@ -228,12 +235,6 @@ public class ThermalReader {
 
             types.add(current_type);
         }
-
-        for (int i = 0; i < types.size(); i++) {
-            types_csv = types_csv +  "," + types.get(i);
-        }
-        types_csv += "fps,throughput,fps,throughput,fps,throughput";
-        types_csv += "\n";
 
         return types;
     }

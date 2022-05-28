@@ -42,11 +42,14 @@ public class ApiClient {
     public RetrofitClientInstance r1;
     public String BASE_URL_API;
     public UploadListener mListner;
+    public int call_queue_size;
+    public final int MAX_QUEUE_SIZE = 50;
 
     public ApiClient (String host, int port){
         this.host = host;
         this.port = port;
         r1 = new RetrofitClientInstance(this.host, this.port);
+        call_queue_size = 0;
     }
 
     public class RetrofitClientInstance {
@@ -108,6 +111,12 @@ public class ApiClient {
     }
 
     public void uploadFile (byte[] byteFile){
+
+        // do not send if queue is accumulated
+        if (call_queue_size > MAX_QUEUE_SIZE){
+            return;
+        }
+
         UploadReceiptService service = r1.getRetrofitInstance().create(UploadReceiptService.class);
 
         String stringValues = "stringValue";
@@ -127,10 +136,13 @@ public class ApiClient {
         RequestBody stringValue = RequestBody.create(MediaType.parse("text/plain"), stringValues);
 
         Call<Object> call = service.uploadReceipt(body);
+        call_queue_size += 1;
+
 
         call.enqueue(new Callback<Object>() {
             @Override
             public void onResponse(Call<Object> call, Response<Object> response) {
+                call_queue_size -= 1;
                 if (response.isSuccessful()){
                     String response_body = new Gson().toJson(response.body());
                     try {
@@ -147,6 +159,7 @@ public class ApiClient {
             }
             @Override
             public void onFailure(Call<Object> call, Throwable t) {
+                call_queue_size -= 1;
                 CCLog.d(TAG,"Upload Failure" );
                 t.printStackTrace();
             }

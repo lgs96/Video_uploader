@@ -466,6 +466,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     mCCVideoWriter.start();
                 }
                 thermalReader.save_string = mWidth + "_"+ bpp;
+                CCLog.d(TAG, "Save string is " + thermalReader.save_string);
             }
         });
 
@@ -625,7 +626,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "onDecodedImage : " + index);
 
                 try {
-                    Thread.sleep(16);
+                    //Thread.sleep(16);
                     mDecodeFrameQueue.put(ccImage);
 
                     if (mDebugShowVideo) {

@@ -36,6 +36,9 @@ public class CCVideoDecoder {
 
     private CCVideoDecoderListener mListener;
 
+    HandlerThread mDecodeThread = null;
+    Handler mDecodeHandler = null;
+
     public interface CCVideoDecoderListener {
         public void onError(String errorMsg);
 
@@ -98,6 +101,10 @@ public class CCVideoDecoder {
             return;
         }
         try {
+            mDecodeThread = new HandlerThread(("Decode"));
+            mDecodeThread.start();
+            mDecodeHandler = new Handler(mDecodeThread.getLooper());
+
             mMediaCodec.configure(mMediaFormat, null, null, 0);
             mMediaCodec.start();
             decodeVideoFromBuffer();
@@ -125,11 +132,30 @@ public class CCVideoDecoder {
         mInputDone = false;
         mEndOfStream = false;
         while (!mEndOfStream) {
-            putCodecInputBuffer();
-            getCodecOutputBuffer(bufferInfo);
+            mDecodeHandler.post(new runDecodeThread(bufferInfo));
+            //putCodecInputBuffer();
+            //getCodecOutputBuffer(bufferInfo);
+            try{
+                CCLog.d(TAG, "Frame inserted!");
+                Thread.sleep(33); //30FPS
+            }
+            catch (Exception e){
+
+            }
         }
         CCLog.d(TAG, "Decoding END mOutputFrameCount : " + mOutputFrameCount);
         return;
+    }
+
+    public class runDecodeThread implements Runnable {
+        MediaCodec.BufferInfo bufferInfo;
+
+        runDecodeThread(MediaCodec.BufferInfo bufferInfo){this.bufferInfo = bufferInfo;}
+
+        public void run() {
+            putCodecInputBuffer();
+            getCodecOutputBuffer(bufferInfo);
+        }
     }
 
     private void putCodecInputBuffer() {

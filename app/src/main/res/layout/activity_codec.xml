@@ -97,7 +97,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dip"
                     android:layout_weight="1"
-                    android:hint="Set bpp (0~1)"
+                    android:hint="Set bpp*100 (1~100)"
                     android:inputType="number"
                     android:textSize="16dip" />
 
