@@ -46,7 +46,7 @@ public class Config {
             // temp
             temp_index.add(5);
             temp_index.add(6);
-            temp_index.add(47);
+            temp_index.add(50);
             // cooling
             cooling_index.add(0);
             cooling_index.add(1);
