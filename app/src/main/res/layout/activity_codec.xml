@@ -26,6 +26,12 @@
                 android:orientation="vertical">
 
                 <Button
+                    android:id="@+id/button_trs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Thermally Reliable Streaming" />
+
+                <Button
                     android:id="@+id/button_jpg_inference"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

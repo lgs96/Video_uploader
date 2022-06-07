@@ -56,6 +56,9 @@ public class CCVideoDecoder {
     public CCVideoDecoder(MediaExtractor mediaExtractor, MediaFormat mediaFormat) {
         mMediaExtractor = mediaExtractor;
         mMediaFormat = mediaFormat;
+
+        // Here, we call preprocessed jpeg images files
+
     }
 
     public void setListener(CCVideoDecoderListener listener) {

@@ -36,6 +36,7 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoReader;
+import kr.ac.snu.nxc.cloudcamera.codec.CCVideoStreamEncoder;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoStreamWriter;
 import kr.ac.snu.nxc.cloudcamera.library.ImageUtils;
 import kr.ac.snu.nxc.cloudcamera.thermalreader.ThermalReader;
@@ -115,6 +116,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     public static ArrayList<Integer> QPHistory = new ArrayList<Integer>();
     Queue<CCImage> mEncodingImageQueue = new LinkedList<CCImage>();
 
+    Button mButtonTRS = null;
     Button mButtonJpgInference = null;
     Button mButtonVideoInference = null;
 
@@ -176,6 +178,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     // Thermal reader
     ThermalReader thermalReader;
+    CCVideoStreamEncoder mCCVideoEncoder;
 
     @Override
     public void onEncodingFinish(CCImage decodeImage, CCImage inferenceImage, double encodeTime) {
@@ -265,10 +268,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         encode_frame = 0;
                         encode_byte = 0;
                         CCLog.d(TAG, "Decoding record is " + content);
-                    }
-
-                    if (total_frameCount == 30){
-                        closeToRestart();
                     }
 
                 } catch (Exception e) {
@@ -407,6 +406,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         ht.start();
         mVideoEncodingHandler = new Handler(ht.getLooper());
 
+        mButtonTRS = (Button) findViewById(R.id.button_trs);
         mButtonJpgInference = (Button) findViewById(R.id.button_jpg_inference);
         mButtonVideoInference = (Button) findViewById(R.id.button_video_inference);
         mTextViewStatus = (TextView) findViewById(R.id.text_view_codec_status);
@@ -438,6 +438,46 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mSaveThread = new HandlerThread(("Save"));
         mSaveThread.start();
         mSaveHandler = new Handler(mSaveThread.getLooper());
+
+
+        // Goodsol
+        mButtonTRS.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mIsVideoEncoding = true;
+                mDecodeBitmapQueue.clear();
+                mDecodeFrameQueue.clear();
+                mInferenceManager.startInference(CCConstants.InferenceInputType.INFERENCE_VIDEO);
+                mEncodingFrameIndex = 0;
+
+                //SET Video Config
+                float bpp = 0.18f;
+                if (mEditBitrate.getText().toString().trim().length() > 0){
+                    bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
+                    mCCVideoWriter.setBitPerPixel(bpp);
+                    mCCVideoWriter.start();
+                }
+                else{
+                    mCCVideoWriter.setBitPerPixel(bpp);
+                    mCCVideoWriter.start();
+                }
+
+                // Define initial CCVideoWriter
+                mCCVideoEncoder = new CCVideoStreamEncoder();
+//            mEncoder.setImageList(mCCImageList);
+                mCCVideoEncoder.setSize(mWidth, mHeight);
+                mCCVideoEncoder.setKeyFramePerSec(1);
+                mCCVideoEncoder.setFPS(30);
+                mCCVideoEncoder.setListener(mListener);
+                mCCVideoEncoder.setColorFormat(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+                mCCVideoEncoder.setBitrate(getBitrate());
+                mCCVideoEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
+                mCCVideoEncoder.start();
+                // Read states
+                thermalReader = new ThermalReader();
+                thermalReader.readThermal();
+            }
+        });
 
         mButtonJpgInference.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -479,7 +519,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 //mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
 
-
                 thermalReader = new ThermalReader();
                 thermalReader.readThermal();
 
@@ -495,7 +534,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     mEncoderFinish = false;
                     mCCVideoWriter.start();
                 }
-                thermalReader.save_string = mWidth + "_"+ bpp;
+                thermalReader.save_string = "";
                 CCLog.d(TAG, "Save string is " + thermalReader.save_string);
 
                 CCLog.d(TAG, "Initial operation end!");
@@ -661,6 +700,12 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "closeDecoder end");
             }
         });
+    }
+
+    public class ImageDecoder implements Runnable {
+        public void run (){
+
+        }
     }
 
 
