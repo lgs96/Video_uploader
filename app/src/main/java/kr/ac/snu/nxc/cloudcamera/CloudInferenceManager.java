@@ -40,9 +40,9 @@ public class CloudInferenceManager {
     private final static String TAG = "CloudShotManager";
     private static final String AROHA_TAG = "AROHA";
 
-    private static final String HOST = "seoul.overlinkapp.org";
+    public static final String HOST = "seoul.overlinkapp.org";
 //    private static final String HOST = "192.168.1.5";
-    private static final int PORT = 3030;
+    public static final int PORT = 3030;
     private static final int PORT2 = 8486;
 
     //Socket MSG
@@ -232,7 +232,6 @@ public class CloudInferenceManager {
         if (resizeW % 2 != 0) {
             resizeW += 1;
         }
-
 
         CCImage downScaledImage = new CCImage(resizeW, resizeH, resizeW, ccImage.mTimestamp);
         ImageUtils.downScaleCCImage(downScaledImage.mYuvBuffer, ccImage.mYuvBuffer,

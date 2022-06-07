@@ -125,6 +125,7 @@ public class CCVideoEncoder {
         }
     }
 
+
     public void initialize() throws IOException {
         String type = MediaFormat.MIMETYPE_VIDEO_AVC;
         mMediaCodec = MediaCodec.createEncoderByType(type);

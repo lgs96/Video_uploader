@@ -39,6 +39,8 @@ public class CCVideoDecoder {
     HandlerThread mDecodeThread = null;
     Handler mDecodeHandler = null;
 
+    private boolean mCloseDone = false;
+
     public interface CCVideoDecoderListener {
         public void onError(String errorMsg);
 
@@ -135,13 +137,6 @@ public class CCVideoDecoder {
             mDecodeHandler.post(new runDecodeThread(bufferInfo));
             //putCodecInputBuffer();
             //getCodecOutputBuffer(bufferInfo);
-            try{
-                CCLog.d(TAG, "Frame inserted!");
-                Thread.sleep(33); //30FPS
-            }
-            catch (Exception e){
-
-            }
         }
         CCLog.d(TAG, "Decoding END mOutputFrameCount : " + mOutputFrameCount);
         return;
@@ -153,8 +148,13 @@ public class CCVideoDecoder {
         runDecodeThread(MediaCodec.BufferInfo bufferInfo){this.bufferInfo = bufferInfo;}
 
         public void run() {
-            putCodecInputBuffer();
-            getCodecOutputBuffer(bufferInfo);
+            synchronized(mLock) {
+                if (mCloseDone) {
+                    return;
+                }
+                putCodecInputBuffer();
+                getCodecOutputBuffer(bufferInfo);
+            }
         }
     }
 
@@ -219,11 +219,14 @@ public class CCVideoDecoder {
     }
 
     public void close() {
+        CCLog.d(TAG, "decoder close called");
         synchronized(mLock) {
+            CCLog.d(TAG, "decoder close loop");
             if (mMediaCodec != null) {
                 mMediaCodec.stop();
                 mMediaCodec.release();
                 mMediaCodec = null;
+                mCloseDone = true;
                 CCLog.d(TAG, "decoder close");
             }
             mMediaExtractor = null;

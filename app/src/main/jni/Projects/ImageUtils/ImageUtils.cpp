@@ -532,9 +532,12 @@ JNIEXPORT void JNICALL Java_kr_ac_snu_nxc_cloudcamera_library_ImageUtils_downSca
          jint resizedW, jint resizedH) {
     LOGI(LOG_DEBUG, "**downScaleCCImage - start **");
     uint8_t* inputY = static_cast<uint8_t*>(pEnv->GetDirectBufferAddress(inYuv420sp));
+    LOGI(LOG_DEBUG, "**downScaleCCImage - start1 **");
     uint8_t* inputVU = inputY + stride * orgInputH;
+    LOGI(LOG_DEBUG, "**downScaleCCImage - start2 **");
 
     uint8_t* resizedYuv = static_cast<uint8_t*>(pEnv->GetDirectBufferAddress(outYuv420sp));
+    LOGI(LOG_DEBUG, "**downScaleCCImage - start3 **");
     resizeAndCropForYuv420SP(resizedYuv, inputY, inputVU, stride, orgInputW, orgInputH, resizedW, resizedH, 0, resizedW);
     LOGI(LOG_DEBUG, "**downScaleCCImage - end **");
 }

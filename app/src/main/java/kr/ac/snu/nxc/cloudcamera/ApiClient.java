@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -84,13 +85,14 @@ public class ApiClient {
         Call <Object>uploadReceipt(@Part MultipartBody.Part file);
     }
 
-    public interface GetResponse {
-        @GET("response")
+
+    public interface RLservice {
+        @GET("RL")
         Call <String> getName();
     }
 
-    public void getService (){
-        GetResponse service = r1.getRetrofitInstance().create(GetResponse.class);
+    public void state_tx (JSONObject RLinfo){
+        RLservice service = r1.getRetrofitInstance().create(RLservice.class);
 
         Call<String> call = service.getName();
         call.enqueue(new Callback<String>() {
@@ -166,9 +168,7 @@ public class ApiClient {
         });
     }
 
-    public void setListner(UploadListener Listner){
-        mListner = Listner;
-    }
+    public void setListner(UploadListener Listner){ mListner = Listner; }
 
     public interface UploadListener{
         public void onResponse(String response) throws JSONException;

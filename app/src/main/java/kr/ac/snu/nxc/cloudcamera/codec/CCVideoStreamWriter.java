@@ -60,6 +60,10 @@ public final class CCVideoStreamWriter {
         initBitPerPixel();
     }
 
+    public void setNewMediaFormat () {
+        mEncoder.setNewMediaFormat();
+    }
+
     public void put(CCImage ccImage) {
         mEncoder.putEncodingBuffer(ccImage);
     }
@@ -125,6 +129,8 @@ public final class CCVideoStreamWriter {
                 if (mMuxerStarted) {
                     try {
                         mMediaMuxer.stop();
+                        mMediaMuxer.release();
+                        mMediaMuxer = null;
                     } catch (Exception e) {
                         success = false;
                         CCLog.e(TAG, "Stop fail");
@@ -132,8 +138,6 @@ public final class CCVideoStreamWriter {
                     }
                     mMuxerStarted = false;
                 }
-                mMediaMuxer.release();
-                mMediaMuxer = null;
             }
 
             if (mEncoder != null) {

@@ -128,12 +128,36 @@ public class CCVideoStreamEncoder {
         }
     }
 
+    public void setNewMediaFormat(){
+
+        synchronized(mLock) {
+            CCLog.d(TAG, "Reset");
+            mMediaCodec.stop();
+            mMediaCodec.release();
+            mMediaCodec = null;
+
+            String type = MediaFormat.MIMETYPE_VIDEO_AVC;
+            try {
+                mMediaCodec = MediaCodec.createEncoderByType(type);
+            }
+            catch (Exception e){
+
+            }
+            mMediaFormat.setInteger(MediaFormat.KEY_WIDTH, 1920);
+            mMediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 1080);
+            mMediaCodec.configure(mMediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            mMediaCodec.start();
+        }
+    }
+
     public void stop() {
         CCLog.d(TAG, "Stop");
         mFinish = true;
     }
 
     public void initialize() throws IOException {
+        //mWidth = 1920;
+        //mHeight = 1080;
         String type = MediaFormat.MIMETYPE_VIDEO_AVC;
         mMediaCodec = MediaCodec.createEncoderByType(type);
         mMediaFormat = MediaFormat.createVideoFormat(type, mWidth, mHeight);
@@ -215,109 +239,109 @@ public class CCVideoStreamEncoder {
     }
 
     public void putEncodingBuffer(CCImage image) {
-        CCLog.d(TAG, "Queue Size : "+ mEncodingQueue.size());
+        CCLog.d(TAG, "Queue Size : " + mEncodingQueue.size());
         try {
             if (!mInputDone && mEncodingQueue.size() < 20) {
                 mEncodingQueue.put(image);
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             CCLog.e(TAG, "Error : " + e.getMessage());
         }
     }
 
     private void putCodecInputBuffer() {
-        if (mInputDone) {
-            return;
-        }
+            if (mInputDone) {
+                return;
+            }
 
-        if (mKeyFramePerSec == 0 || mFirstFrame) {
-            CCLog.d(TAG, "Request Sync Input");
-            Bundle bundle = new Bundle();
-            bundle.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
-            mMediaCodec.setParameters(bundle);
-        }
+            if (mKeyFramePerSec == 0 || mFirstFrame) {
+                CCLog.d(TAG, "Request Sync Input");
+                Bundle bundle = new Bundle();
+                bundle.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                mMediaCodec.setParameters(bundle);
+            }
 
-        long start = SystemClock.uptimeMillis();
-        int inputBufIndex = mMediaCodec.dequeueInputBuffer(TIMEOUT_USEC);
-        long end = SystemClock.uptimeMillis();
-        mEncodingTime += (end - start);
+            long start = SystemClock.uptimeMillis();
+            int inputBufIndex = mMediaCodec.dequeueInputBuffer(TIMEOUT_USEC);
+            long end = SystemClock.uptimeMillis();
+            mEncodingTime += (end - start);
 
 //        if (inputBufIndex >= 0 && mCCImageList.size() > 0) {
-        CCImage ccImage = null;
-        try {
-            CCLog.d(TAG, "take");
-            ccImage = mEncodingQueue.take();
-        } catch (Exception e) {
-            CCLog.e(TAG, "Error : " + e.getMessage());
-        }
-        if (inputBufIndex >= 0 && ccImage != null) {
-            ByteBuffer inputBuffer = mMediaCodec.getInputBuffer(inputBufIndex);
+            CCImage ccImage = null;
+            try {
+                CCLog.d(TAG, "take");
+                ccImage = mEncodingQueue.take();
+            } catch (Exception e) {
+                CCLog.e(TAG, "Error : " + e.getMessage());
+            }
+            if (inputBufIndex >= 0 && ccImage != null) {
+                ByteBuffer inputBuffer = mMediaCodec.getInputBuffer(inputBufIndex);
 
 //            CCImage ccImage = mCCImageList.removeFirst();
-            CCLog.d(TAG, "inputBuffer capacity : " + inputBuffer.capacity() + " data : " + ccImage.mYuvBuffer.capacity());
-            byte[] byteCCImage = ccImage.getYuvBuffer().array();
-            if (byteCCImage != null) {
-                try {
+                CCLog.d(TAG, "inputBuffer capacity : " + inputBuffer.capacity() + " data : " + ccImage.mYuvBuffer.capacity());
+                byte[] byteCCImage = ccImage.getYuvBuffer().array();
+                if (byteCCImage != null) {
+                    try {
+                        CCLog.d(TAG, "Swap UV before encoding");
+                        ImageUtils.swapUV(ccImage);
 
-                    CCLog.d(TAG, "Swap UV before encoding");
-                    ImageUtils.swapUV(ccImage);
+                        start = SystemClock.uptimeMillis();
+                        //inputBuffer.put(byteCCImage, 0, ccImage.mYuvBuffer.capacity());
+                        inputBuffer.put(ccImage.mYuvBuffer);
+                        end = SystemClock.uptimeMillis();
+                        mEncodingTime += (end - start);
+
+                        CCLog.d(TAG, "Swap UV after encoding");
+                        ImageUtils.swapUV(ccImage);
+
+                    } catch (BufferOverflowException e) {
+                        CCLog.e(TAG, "input data length = " + byteCCImage.length);
+                        CCLog.e(TAG, "buffer capacity = " + inputBuffer.capacity());
+                        CCLog.e(TAG, "buffer limit = " + inputBuffer.limit());
+                        e.printStackTrace();
+                        if (mListener != null) {
+                            mListener.onError("BufferOverflowException");
+                        }
+                        return;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        if (mListener != null) {
+                            mListener.onError("putCodecInputBuffer Exception");
+                        }
+                        return;
+                    }
 
                     start = SystemClock.uptimeMillis();
-                    //inputBuffer.put(byteCCImage, 0, ccImage.mYuvBuffer.capacity());
-                    inputBuffer.put(ccImage.mYuvBuffer);
+
+                    if (mPrevTimeStamp == 0) {
+                        mPrevTimeStamp = ccImage.mTimestamp;
+                    }
+
+                    mPtrusec += ((ccImage.mTimestamp - mPrevTimeStamp) / 1000);
+                    mPrevTimeStamp = ccImage.mTimestamp;
+
+                    int flag = 0;
+                    if (mFinish) {
+                        CCLog.d(TAG, "BUFFER_FLAG_END_OF_STREAM");
+                        flag = flag | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+                        mInputDone = true;
+                        mEncodingQueue.clear();
+                    }
+
+                    if (mKeyFramePerSec == 0 || mFirstFrame) {
+                        flag = flag | MediaCodec.BUFFER_FLAG_KEY_FRAME;
+                        mFirstFrame = false;
+
+                        CCLog.d(TAG, "FLAG : " + flag);
+                    }
+                    mMediaCodec.queueInputBuffer(inputBufIndex, 0, ccImage.mYuvBuffer.capacity(), mPtrusec, flag);
+                    mOutputFrameCount++;
+
                     end = SystemClock.uptimeMillis();
                     mEncodingTime += (end - start);
-
-                    CCLog.d(TAG, "Swap UV after encoding");
-                    ImageUtils.swapUV(ccImage);
-
-                } catch (BufferOverflowException e) {
-                    CCLog.e(TAG, "input data length = " + byteCCImage.length);
-                    CCLog.e(TAG, "buffer capacity = " + inputBuffer.capacity());
-                    CCLog.e(TAG, "buffer limit = " + inputBuffer.limit());
-                    e.printStackTrace();
-                    if(mListener != null) {
-                        mListener.onError("BufferOverflowException");
-                    }
-                    return;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    if(mListener != null) {
-                        mListener.onError("putCodecInputBuffer Exception");
-                    }
-                    return;
                 }
-
-                start = SystemClock.uptimeMillis();
-
-                if (mPrevTimeStamp == 0) {
-                    mPrevTimeStamp = ccImage.mTimestamp;
-                }
-
-                mPtrusec += ((ccImage.mTimestamp - mPrevTimeStamp) / 1000);
-                mPrevTimeStamp = ccImage.mTimestamp;
-
-                int flag = 0;
-                if (mFinish) {
-                    CCLog.d(TAG, "BUFFER_FLAG_END_OF_STREAM");
-                    flag = flag | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
-                    mInputDone = true;
-                    mEncodingQueue.clear();
-                }
-
-                if (mKeyFramePerSec == 0 || mFirstFrame) {
-                    flag = flag | MediaCodec.BUFFER_FLAG_KEY_FRAME;
-                    mFirstFrame = false;
-
-                    CCLog.d(TAG, "FLAG : " + flag);
-                }
-                mMediaCodec.queueInputBuffer(inputBufIndex, 0, ccImage.mYuvBuffer.capacity(), mPtrusec, flag);
-                mOutputFrameCount++;
-
-                end = SystemClock.uptimeMillis();
-                mEncodingTime += (end - start);
             }
-        }
+
     }
 
     private void getCodecOutputBuffer(MediaCodec.BufferInfo bufferInfo) {
@@ -325,6 +349,8 @@ public class CCVideoStreamEncoder {
             return;
         }
         long start = SystemClock.uptimeMillis();
+
+        CCLog.d(TAG, "resolution debugger: " + mMediaFormat.getInteger(MediaFormat.KEY_WIDTH) +" " + mMediaCodec.getOutputFormat());
 
         int outputBufferId = mMediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
         if (outputBufferId >= 0) {

@@ -3,6 +3,8 @@ package kr.ac.snu.nxc.cloudcamera;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.media.MediaMetadataRetriever;
 import android.os.Bundle;
 import android.os.Environment;
@@ -45,6 +47,7 @@ import kr.ac.snu.nxc.cloudcamera.util.CCUtils;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.downScaleCCImage;
 import static kr.ac.snu.nxc.cloudcamera.util.CCConstants.MAX_CODEC_QUEUE_SIZE;
 import static kr.ac.snu.nxc.cloudcamera.util.CCConstants.TEMP_VIDEO_PATH;
 
@@ -221,6 +224,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                     CCImage decodeFrame = mDecodeFrameQueue.take();
 //                    EncodingQueue.put(Pair.create(frameIndex, decodeFrame));
+                    CCLog.d(TAG, "Downscale prelim : " + decodeFrame.mHeight + " " + decodeFrame.mWidth);
+
 
                     if (mIsVideoEncoding) {
                         mVideoEncodingHandler.post(getEncodingFrameRunnable(decodeFrame));
@@ -347,6 +352,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             public void run() {
                 mEncoderFinish = true;
                 mCCVideoWriter.close();
+                //runUpload();
             }
         });
     }
@@ -358,7 +364,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 synchronized (mLock) {
                     if (!mEncoderFinish) {
                         CCLog.d(TAG, "Codec put");
-//                        CCImage cpyImage = new CCImage(ccImage);
+                        //CCImage cpyImage = new CCImage(ccImage);
+                        //cpyImage =  downScaleCCImage (cpyImage, 0.2f);
+
+                        // origin: ccImage
+                        //CCImage downScaleFrame = downScaleCCImage(ccImage, 0.5f);
                         mEncodingImageQueue.add(ccImage);
 //                        mCCVideoReader.returnQueueImage(ccImage);
                         mCCVideoWriter.put(ccImage);
@@ -439,6 +449,20 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mButtonVideoInference.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                int numCodecs = MediaCodecList.getCodecCount();
+                for (int i = 0; i < numCodecs; i++) {
+                    MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+                    String name = codecInfo.getName();
+                    CCLog.d(TAG, "supports examining " + (codecInfo.isEncoder() ? "encoder" : "decoder") + ": " + name);
+                    for(String type: codecInfo.getSupportedTypes()) {
+                        boolean ap = codecInfo.getCapabilitiesForType(type).isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback);
+                        CCLog.d(TAG, "supports adaptive playback: " + ap);
+                    }
+                }
+
+                CCLog.d(TAG, "Initial operation start!");
+
                 mIsVideoEncoding = true;
                 mDecodeBitmapQueue.clear();
                 mDecodeFrameQueue.clear();
@@ -448,7 +472,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 //                mCodecHandler.post(new VideoDecoder());
 
                 String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
+                //mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
+
 
                 thermalReader = new ThermalReader();
                 thermalReader.readThermal();
@@ -467,6 +493,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 }
                 thermalReader.save_string = mWidth + "_"+ bpp;
                 CCLog.d(TAG, "Save string is " + thermalReader.save_string);
+
+                CCLog.d(TAG, "Initial operation end!");
             }
         });
 
@@ -576,6 +604,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     }
 
     public void runUpload (){
+        CCLog.d(TAG, "Run upload called");
+
         mIsVideoEncoding = true;
         mDecodeBitmapQueue.clear();
         mDecodeFrameQueue.clear();
@@ -602,6 +632,28 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         }
     }
 
+    public void closeDecoder() {
+        mCodecHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                CCLog.d(TAG, "closeDecoder");
+                mCCVideoReader.close();
+                mDecoderFinish = true;
+                CCLog.d(TAG, "closeDecoder end");
+            }
+        });
+        if (mIsVideoEncoding) {
+            mCodecHandler.postAtTime(new Runnable() {
+                @Override
+                public void run() {
+                    CCLog.d(TAG, "closeEncoder");
+                    closeEncoder();
+                }
+            }, 0);
+        }
+    }
+
+
     public class VideoDecoder implements Runnable {
         CCVideoReader.CCVideoReaderListener mReaderListener = new CCVideoReader.CCVideoReaderListener() {
             @Override
@@ -609,8 +661,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "onFinish");
                 mStatusText = "Decode Finish";
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
-                //closeDecoder();
-                mCodecHandler.post(new VideoDecoder());
+                closeDecoder();
             }
 
             public void onError(String errorMsg) {
@@ -627,6 +678,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 try {
                     //Thread.sleep(16);
+                    // Set video resolution here (Goodsol-RLagent)
                     mDecodeFrameQueue.put(ccImage);
 
                     if (mDebugShowVideo) {

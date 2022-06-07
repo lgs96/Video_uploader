@@ -31,6 +31,10 @@ public class CCVideoReader {
 
     private CCVideoReaderListener mReaderListener;
 
+    // RL
+    public int init_width;
+    public int init_height;
+
     public interface CCVideoReaderListener {
         public void onFinish();
 
@@ -45,7 +49,11 @@ public class CCVideoReader {
     }
 
     public void initQueue(int width, int height) {
-        CCLog.d(TAG, "initQueue");
+        CCLog.d(TAG, "initQueue " +  MAX_CODEC_QUEUE_SIZE);
+
+        init_width = width;
+        init_height = height;
+
         mCodecFrameQueue.clear();
         for (int i = 0; i < MAX_CODEC_QUEUE_SIZE; i++) {
             try {
@@ -57,7 +65,9 @@ public class CCVideoReader {
 
     public void returnQueueImage(CCImage usedImage) {
         try {
-            mCodecFrameQueue.put(usedImage);
+            CCLog.d(TAG, "initQueue ");
+            //mCodecFrameQueue.put(usedImage);
+            mCodecFrameQueue.put(new CCImage(init_width, init_height, init_width, 0));
         } catch (Exception e) {
 
         }
@@ -102,7 +112,7 @@ public class CCVideoReader {
         synchronized (mLock) {
             mCodecFrameQueue.clear();
 
-            CCLog.d(TAG, "Close");
+            CCLog.d(TAG, "Close Reader");
             if (mDecoder != null) {
                 mDecoder.close();
                 mDecoder = null;
@@ -112,7 +122,7 @@ public class CCVideoReader {
                 mExtractor.release();
                 mExtractor = null;
             }
-            CCLog.d(TAG, "Close end");
+            CCLog.d(TAG, "Close Reader end");
         }
     }
 
