@@ -44,6 +44,11 @@ public class CCConstants {
 
     //Path
     public static final String CCVIDEO_PATH = Environment.getExternalStorageDirectory() + "/CCVideo/";
+    public static final String CC4k = Environment.getExternalStorageDirectory() + "/CCVideo/4k.mp4";
+    public static final String CC3264 = Environment.getExternalStorageDirectory() + "/CCVideo/4k_3264x1836.mp4";
+    public static final String CC2880 = Environment.getExternalStorageDirectory() + "/CCVideo/4k_2880x1620.mp4";
+    public static final String CC2496 = Environment.getExternalStorageDirectory() + "/CCVideo/4k_2496x1404.mp4";
+    public static final String CCFHD = Environment.getExternalStorageDirectory() + "/CCVideo/Peru 8K HDR 60FPS (FUHD).mp4";
     public static final String TEMP_VIDEO_PATH = Environment.getExternalStorageDirectory() + "/CCVideo/temp/";
 
     public static final String CCIMAGE_PATH = Environment.getExternalStorageDirectory() + "/CCImage/";

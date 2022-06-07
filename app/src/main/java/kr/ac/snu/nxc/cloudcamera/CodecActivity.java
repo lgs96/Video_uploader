@@ -267,6 +267,10 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         CCLog.d(TAG, "Decoding record is " + content);
                     }
 
+                    if (total_frameCount == 30){
+                        closeToRestart();
+                    }
+
                 } catch (Exception e) {
 
                 }
@@ -291,7 +295,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         @Override
         public void onFinish(long encodingTime) {
             CCLog.d(TAG, "Finish");
-            closeEncoder();
+            //closeEncoder();
+            runUpload();
 //            mRunningDump = false;
 
 //            mInferenceManager.setState(true);
@@ -299,7 +304,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
         public void onError(String errorMsg) {
             CCLog.d(TAG, "onError : " + errorMsg);
-            closeEncoder();
+            //closeEncoder();
         }
 
         public void onEncodedBuffer(ByteBuffer buffer, int size) {
@@ -352,7 +357,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             public void run() {
                 mEncoderFinish = true;
                 mCCVideoWriter.close();
-                //runUpload();
             }
         });
     }
@@ -632,7 +636,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         }
     }
 
-    public void closeDecoder() {
+    public void closeEnDecoder() {
         mCodecHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -640,17 +644,23 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mCCVideoReader.close();
                 mDecoderFinish = true;
                 CCLog.d(TAG, "closeDecoder end");
-            }
-        });
-        if (mIsVideoEncoding) {
-            mCodecHandler.postAtTime(new Runnable() {
-                @Override
-                public void run() {
-                    CCLog.d(TAG, "closeEncoder");
+                if (mIsVideoEncoding) {
                     closeEncoder();
                 }
-            }, 0);
-        }
+            }
+        });
+    }
+
+    public void closeToRestart () {
+        mCodecHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                CCLog.d(TAG, "closeDecoder");
+                mCCVideoReader.close();
+                //mDecoderFinish = true;
+                CCLog.d(TAG, "closeDecoder end");
+            }
+        });
     }
 
 
@@ -671,6 +681,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 closeDecoder();
 
                 //runUpload ();
+            }
+
+            public void closeWriter (){
+                CCLog.d(TAG, "Resolution set: close writer from codecactivity");
+                closeEncoder();
             }
 
             public void onDecodedImage(int index, CCImage ccImage) {

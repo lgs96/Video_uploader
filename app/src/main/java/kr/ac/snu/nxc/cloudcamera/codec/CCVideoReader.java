@@ -41,6 +41,8 @@ public class CCVideoReader {
         public void onError(String errorMsg);
 
         public void onDecodedImage(int index, CCImage ccImage);
+
+        public void closeWriter ();
     }
 
     public CCVideoReader(String path, CCVideoReaderListener listener) {
@@ -76,6 +78,8 @@ public class CCVideoReader {
     public void start() {
         synchronized (mLock) {
             try {
+
+                CCLog.d(TAG, "VideoReader initial operation start");
                 mExtractor = new MediaExtractor();
                 mExtractor.setDataSource(mSavedFilePath);
 
@@ -91,12 +95,14 @@ public class CCVideoReader {
                 MediaFormat mediaFormat = mExtractor.getTrackFormat(mTrackIndexOfVideo);
                 String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
 
-
                 CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
                 mDecoder.setListener(mListener);
                 mDecoder.start(mime);
                 CCLog.d(TAG, "CCVideoReader Decoder no error");
+                CCLog.d(TAG, "VideoReader initial operation end");
+
+                CCLog.e(TAG, "Error no video track");
             } catch (Exception e) {
                 CCLog.e(TAG, "CCVideoReader Exception");
                 if (mReaderListener != null) {
@@ -165,6 +171,13 @@ public class CCVideoReader {
                     } catch (Exception e) {
                     }
                 }
+            }
+        }
+
+        @Override
+        public void closeEncoder(){
+            if (mReaderListener != null) {
+                mReaderListener.closeWriter();
             }
         }
     };

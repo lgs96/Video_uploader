@@ -41,12 +41,16 @@ public class CCVideoDecoder {
 
     private boolean mCloseDone = false;
 
+    private long time_count = 0;
+
     public interface CCVideoDecoderListener {
         public void onError(String errorMsg);
 
         public void onFinish();
 
         public void onDrainOutputImage(int index, Image image);
+
+        public void closeEncoder ();
     }
 
     public CCVideoDecoder(MediaExtractor mediaExtractor, MediaFormat mediaFormat) {
@@ -181,10 +185,20 @@ public class CCVideoDecoder {
                 CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId + " End of stream: " + mEndOfStream);
                 long presentationTimeUs = mMediaExtractor.getSampleTime();
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
-                mMediaExtractor.advance();
+                //mMediaExtractor.advance();
+                time_count += 166666;
+                mMediaExtractor.seekTo(time_count, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+                CCLog.d(TAG, "getSampleTrackIndex : " + mMediaExtractor.getSampleTrackIndex() + " " + mMediaExtractor.getSampleTime() + " " + time_count);
             }
         }
     }
+
+    /*
+    public void moveTo(double time) {
+        mMediaExtractor.seekTo((long) (time * 10E5), MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+        seekTime = mMediaExtractor.getSampleTime()/ 1000;
+    }
+    */
 
     private void getCodecOutputBuffer(MediaCodec.BufferInfo bufferInfo) {
         if (mEndOfStream) {
@@ -232,6 +246,11 @@ public class CCVideoDecoder {
             mMediaExtractor = null;
             stopThread();
             CCLog.d(TAG, "decoder close end");
+
+            // Return to stream reader!
+            if (mListener != null) {
+                mListener.closeEncoder();
+            }
         }
     }
 

@@ -275,6 +275,7 @@ public class CCVideoStreamEncoder {
                 CCLog.e(TAG, "Error : " + e.getMessage());
             }
             if (inputBufIndex >= 0 && ccImage != null) {
+                CCLog.d(TAG, "inputBuffer index : " + inputBufIndex);
                 ByteBuffer inputBuffer = mMediaCodec.getInputBuffer(inputBufIndex);
 
 //            CCImage ccImage = mCCImageList.removeFirst();
@@ -366,7 +367,7 @@ public class CCVideoStreamEncoder {
         } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
             mOutputFormat = mMediaCodec.getOutputFormat();
             CCLog.i(TAG, "onOutputFormatChanged = " + mOutputFormat.toString());
-            mListener.onOutputFormatChanged(mMediaCodec.getOutputFormat());
+           // mListener.onOutputFormatChanged(mMediaCodec.getOutputFormat());
         }
 
         long end = SystemClock.uptimeMillis();
@@ -399,6 +400,7 @@ public class CCVideoStreamEncoder {
                 mCCImageList = null;
             }
             stopThread();
+            mListener.onFinish(0);
         }
     }
 }

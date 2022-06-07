@@ -23,6 +23,7 @@ public final class CCVideoStreamWriter {
 
     CCVideoStreamEncoder mEncoder = null;
     MediaMuxer mMediaMuxer = null;
+    boolean mStart = false;
     int mTrackIndexOfVideo = 0;
 
     private int mWidth = -1;
@@ -76,7 +77,8 @@ public final class CCVideoStreamWriter {
         CCLog.d(TAG, "CCVideoWriter start Image Count = " + mCCImageList.size());
         synchronized (mLock) {
             try {
-                mMediaMuxer = new MediaMuxer(mSaveFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                //mMediaMuxer = new MediaMuxer(mSaveFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                mStart = true;
             } catch (Exception e) {
                 mWriterListener.onError("MediaMuxer Exception");
                 e.printStackTrace();
@@ -122,6 +124,7 @@ public final class CCVideoStreamWriter {
 
     public boolean close() {
         boolean success = true;
+        mStart = false;
 
         synchronized (mLock) {
             if (mMediaMuxer != null) {
@@ -141,7 +144,7 @@ public final class CCVideoStreamWriter {
             }
 
             if (mEncoder != null) {
-                CCLog.d(TAG, "Encoder Close");
+                CCLog.d(TAG, "Encoder Close from streamwriter");
                 mEncoder.close();
                 mEncoder = null;
             }
@@ -203,7 +206,8 @@ public final class CCVideoStreamWriter {
         public void onDrainOutputBuffer(MediaCodec.BufferInfo bufferInfo, ByteBuffer byteBuffer) {
             CCLog.d(TAG, "onDrainOutputBuffer : " + mOutputIndex);
             CCLog.d(TAG, "Buffer offset : " + bufferInfo.offset + " buffer size : " + bufferInfo.size);
-            if (mMediaMuxer != null) {
+            //if (mMediaMuxer != null) {
+            if (mStart){
                 synchronized(mLock) {
                     MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                     info.set(bufferInfo.offset, bufferInfo.size, bufferInfo.presentationTimeUs, bufferInfo.flags);
