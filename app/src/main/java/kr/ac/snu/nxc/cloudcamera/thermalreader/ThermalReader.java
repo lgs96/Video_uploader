@@ -72,6 +72,11 @@ public class ThermalReader {
     public String temp_info = "";
     public String cpu_info = "";
 
+    // State for RL
+    public int [] temp_state;
+    public int [] cool_state;
+    public int [] clock_state;
+
     public void readThermal (){
 
         File dir = new File("/sdcard/zts/");
@@ -109,6 +114,10 @@ public class ThermalReader {
         temp_values = new ArrayList[Config.temp_index.size()];
         cooling_values = new ArrayList[Config.cooling_index.size()];
         cpu_values = new ArrayList[Config.cpu_index.size()];
+
+        temp_state = new int[Config.temp_index.size()];
+        cool_state = new int[Config.cooling_index.size()];
+        clock_state = new int[Config.cpu_index.size()];
 
         // Get 2-d list
         for (int i = 0; i < Config.temp_index.size(); i++){
@@ -153,17 +162,20 @@ public class ThermalReader {
                     for (int i = 0; i < temp_values.length; i++){
                         content = content + "," + temp_list.get(i);
                         temp_info = temp_info + " " + temp_list.get(i);
+                        temp_state[i] = Integer.parseInt(temp_list.get(i));
                     }
                     // Cooling
                     List<String> cooling_list = GetList(cooling_path, Config.cooling_index, "cur_state");
                     for (int i = 0; i < cooling_values.length; i++) {
                         content = content + "," + cooling_list.get(i);
+                        cool_state[i] = Integer.parseInt(cooling_list.get(i));
                     }
                     // CPU
                     List<String> cpu_list = GetList(cpu_path, Config.cpu_index, "scaling_cur_freq");
                     for (int i = 0; i < cpu_values.length; i++) {
                         content = content + "," + cpu_list.get(i);
                         cpu_info = cpu_info + " " + cpu_list.get(i);
+                        clock_state[i] = Integer.parseInt(cpu_list.get(i));
                     }
                     content = content + "," + codec_content;
                     content += "\n";

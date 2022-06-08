@@ -52,6 +52,8 @@ public class CCVideoStreamEncoder {
 
     private CCVideoStreamEncoderListener mListener;
 
+    private TRSEncoderListener mTRSListener;
+
     private int bufferSize = -1;
 
     private boolean mStarted = false;
@@ -69,6 +71,10 @@ public class CCVideoStreamEncoder {
         public void onOutputFormatChanged(MediaFormat format);
 
         public void onDrainOutputBuffer(MediaCodec.BufferInfo bufferInfo, ByteBuffer byteBuffer);
+    }
+
+    public interface TRSEncoderListener {
+        public void onEncodedBuffer(MediaCodec.BufferInfo bufferInfo, ByteBuffer byteBuffer);
     }
 
 //    public void setImageList(LinkedList<CCImage> imageList) {
@@ -103,6 +109,10 @@ public class CCVideoStreamEncoder {
 
     public void setListener(CCVideoStreamEncoderListener listener) {
         mListener = listener;
+    }
+
+    public void setTRSListener(TRSEncoderListener listener) {
+        mTRSListener = listener;
     }
 
     public void start() {
@@ -233,8 +243,10 @@ public class CCVideoStreamEncoder {
         while (!mEndOfStream) {
             try {
                 //CCLog.d(TAG, "Enter occurred in Encoder");
+                CCLog.d(TAG, "TRS: encoding start bitrate: " + mBitRate);
                 putCodecInputBuffer();
                 getCodecOutputBuffer(bufferInfo);
+                CCLog.d(TAG, "TRS: encoding end");
             }
             catch (Exception e){
                 //CCLog.d(TAG, "Error occurred in Encoder");
@@ -364,7 +376,13 @@ public class CCVideoStreamEncoder {
             CCLog.i(TAG, "outputBuffer = " + outputBufferId);
 
             ByteBuffer outputBuffer = mMediaCodec.getOutputBuffer(outputBufferId);
-            mListener.onDrainOutputBuffer(bufferInfo, outputBuffer);
+            if (mListener != null) {
+                mListener.onDrainOutputBuffer(bufferInfo, outputBuffer);
+            }
+            if (mTRSListener != null){
+                CCLog.d(TAG, "TRS: callback for upload");
+                mTRSListener.onEncodedBuffer(bufferInfo, outputBuffer);
+            }
             mMediaCodec.releaseOutputBuffer(outputBufferId, false);
             if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                 CCLog.d(TAG, "video output EOS. frameCount : " + mOutputFrameCount);
@@ -406,7 +424,8 @@ public class CCVideoStreamEncoder {
                 mCCImageList = null;
             }
             stopThread();
-            mListener.onFinish(0);
+            if (mListener != null)
+                mListener.onFinish(0);
         }
     }
 }

@@ -4,6 +4,8 @@ package kr.ac.snu.nxc.cloudcamera.RLagent;
 import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.HOST;
 import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.PORT;
 
+import android.media.Image;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,14 +21,21 @@ public class Agent {
     public int modem_temp;
 
     // action
-    public float resolution;
+    public int resolution;
     public int little_clock;
     public int big_clock;
     public int bitrate;
+    private AgentListener mListener;
 
     public Agent (){
         api = new ApiClient(HOST, PORT);
         api.setListner(mUploadListener);
+    }
+
+    public void setListener (AgentListener listener){mListener = listener;}
+
+    public interface AgentListener {
+        public void setAction (int res, int bitrate, int little_clock, int big_clock);
     }
 
     ApiClient.UploadListener mUploadListener = new ApiClient.UploadListener() {
@@ -37,37 +46,27 @@ public class Agent {
         }
     };
 
-    public void transmit_state (int little_cpu_temp, int big_cpu_temp, int modem_temp) throws JSONException {
+    public void transmit_state (int [] temp, int [] cool, int [] clock,
+                                int resolution, int bitrate) throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put("little_temp", little_cpu_temp);
-        obj.put("big_temp", big_cpu_temp);
-        obj.put("modem_temp", modem_temp);
+        obj.put("little_temp", temp[0]);
+        obj.put("big_temp", temp[1]);
+        obj.put("modem_temp", temp[2]);
+        obj.put("cooling", cool[0]);
+        obj.put("little_clock", clock[0]);
+        obj.put("big_clock1", clock[1]);
+        obj.put("big_clock2", clock[2]);
+        obj.put("res", resolution);
+        obj.put("bitrate", bitrate);
         api.state_tx(obj);
     }
 
     public void receive_action (JSONObject action) throws JSONException {
         resolution = Integer.parseInt(action.getString("res"));
+        bitrate = Integer.parseInt(action.getString("bitrate"));
         little_clock  = Integer.parseInt(action.getString("little_clock"));
         big_clock  = Integer.parseInt(action.getString("big_clock"));
-        bitrate = Integer.parseInt(action.getString("bitrate"));
 
-        set_clock ();
-        set_resolution ();
-        set_bitrate ();
-    }
-
-    public void set_clock (){
-        // TODO
-
-    }
-
-    public void set_resolution () {
-        // TODO
-
-    }
-
-    public void set_bitrate () {
-        // TODO
-
+        mListener.setAction(resolution, bitrate, little_clock, big_clock);
     }
 }

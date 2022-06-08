@@ -42,6 +42,7 @@ public class CCVideoDecoder {
     private boolean mCloseDone = false;
 
     private long time_count = 0;
+    private int test_count = 0;
 
     public interface CCVideoDecoderListener {
         public void onError(String errorMsg);
@@ -197,7 +198,7 @@ public class CCVideoDecoder {
                 long presentationTimeUs = mMediaExtractor.getSampleTime();
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
                 mMediaExtractor.advance();
-                //time_count += 166666;
+                //time_count += 16666;
                 //mMediaExtractor.seekTo(time_count, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 CCLog.d(TAG, "getSampleTrackIndex : " + mMediaExtractor.getSampleTrackIndex() + " " + mMediaExtractor.getSampleTime() + " " + time_count);
             }

@@ -48,9 +48,9 @@ public class Config {
             temp_index.add(6);
             temp_index.add(50);
             // cooling
-            cooling_index.add(0);
-            cooling_index.add(1);
-            cooling_index.add(2);
+            //cooling_index.add(0);
+            //cooling_index.add(1);
+            //cooling_index.add(2);
             cooling_index.add(22);
             //cpu freq
             cpu_index.add(0);

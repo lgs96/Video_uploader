@@ -42,6 +42,7 @@ public class CCImage {
         mYuvBuffer = ByteBuffer.allocateDirect(mBufferSize);
         CCLog.d(TAG, "Create new CCImage " + mWidth + " x " + mHeight + " st : " + mStride + " size : " + mBufferSize);
     }
+
     public CCImage(CCImage image) {
         mWidth = image.mWidth;
         mHeight = image.mHeight;

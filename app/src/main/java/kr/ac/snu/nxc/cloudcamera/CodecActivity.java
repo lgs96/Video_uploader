@@ -3,8 +3,10 @@ package kr.ac.snu.nxc.cloudcamera;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.os.Bundle;
 import android.os.Environment;
@@ -30,13 +32,17 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import kr.ac.snu.nxc.cloudcamera.RLagent.Agent;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoReader;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoStreamEncoder;
 import kr.ac.snu.nxc.cloudcamera.codec.CCVideoStreamWriter;
@@ -153,10 +159,12 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     CloudInferenceManager mInferenceManager = null;
     boolean mIsVideoEncoding = false;
+    boolean mIsTRSEncoding = false;
 
     CCVideoReader mCCVideoReader;
     int mWidth;
     int mHeight;
+    int mBitRate;
 
     boolean mDebugShowVideo = true;
     boolean mDebugShowInference = false;
@@ -182,10 +190,50 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     // Thermal reader
     ThermalReader thermalReader;
     CCVideoStreamEncoder mCCVideoEncoder;
+    CCVideoStreamEncoder.TRSEncoderListener mEncoderListener = new CCVideoStreamEncoder.TRSEncoderListener() {
 
+        public void onEncodedBuffer(MediaCodec.BufferInfo bufferInfo, ByteBuffer byteBuffer) {
+            CCLog.d(TAG, "Buffer offset : " + bufferInfo.offset + " buffer size : " + bufferInfo.size);
+            //if (mMediaMuxer != null) {
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            info.set(bufferInfo.offset, bufferInfo.size, bufferInfo.presentationTimeUs, bufferInfo.flags);
+
+            try {
+                byteBuffer.clear();
+                byteBuffer.position(bufferInfo.offset);
+                byteBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                ByteBuffer streamBuffer = ByteBuffer.allocate(bufferInfo.size);
+                streamBuffer.put(byteBuffer);
+//                    byte[] socketWriteBuffer = mFrameBuffer.array();
+
+                //socket write [0] ~ [bufferInfo.size]
+                mInferenceManager.inferenceImage(mEncodingFrameIndex, streamBuffer.array(), bufferInfo.size);
+
+                mEncodingFrameIndex++;
+                encode_frame += 1;
+                encode_byte += (float)bufferInfo.size*8/(1024*1024);
+                CCLog.d(TAG, "TRS encoded Mbits: " + (float)bufferInfo.size*8/(1024*1024));
+            }
+            catch (Exception e){
+                CCLog.d(TAG, "Error during onDrainOutputBuffer: " + e);
+            }
+        }
+    };
+
+    LinkedList<CCImage> mTestList = new LinkedList<CCImage>();
     LinkedList<CCImage> m4kList = new LinkedList<CCImage>();
     LinkedList<CCImage> m3kList = new LinkedList<CCImage>();
     LinkedList<CCImage> m2kList = new LinkedList<CCImage>();
+    ArrayList <LinkedList<CCImage>> resolution_set = new ArrayList<LinkedList<CCImage>>();
+
+    public int mFrameIndex = 0;
+    public int mResolutionIndex = 0;
+    public int mBitRateIndex = 0;
+    public int mLittleCpuIndex = 0;
+    public int mBigCpuIndex = 0;
+    public int mTestIndex = 0;
+
+    Agent RLagent = null;
 
     @Override
     public void onEncodingFinish(CCImage decodeImage, CCImage inferenceImage, double encodeTime) {
@@ -239,7 +287,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                     if (mIsVideoEncoding) {
                         mVideoEncodingHandler.post(getEncodingFrameRunnable(decodeFrame));
-                    } else {
+                    }
+                    else if (mIsTRSEncoding){
+                        mVideoEncodingHandler.post(startTRSEncoding(decodeFrame));
+                    }
+                    else {
                         mInferenceManager.inferenceImage(frameIndex, decodeFrame);
                     }
                     total_frameCount += 1;
@@ -278,9 +330,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     }
 
                     // Resolution change test
-                    if (total_frameCount == 30){
-                        closeToRestart();
-                    }
+                    //if (total_frameCount == 30){
+                    //    closeToRestart();
+                    //}
 
                 } catch (Exception e) {
 
@@ -300,6 +352,15 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     HandlerThread mSaveThread = null;
     Handler mSaveHandler = null;
+
+    HandlerThread mInputThread = null;
+    Handler mInputHandler = null;
+
+    HandlerThread mStateThread = null;
+    Handler mStateHandler = null;
+
+    HandlerThread mPreProcessThread = null;
+    Handler mPreProcessHandler = null;
 
     CCVideoStreamWriter mCCVideoWriter;
     CCVideoStreamWriter.CCVideoWriterListener mWriterListener = new CCVideoStreamWriter.CCVideoWriterListener() {
@@ -371,6 +432,33 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             }
         });
     }
+
+    private Runnable startTRSEncoding (final CCImage ccImage){
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                synchronized (mLock) {
+                    if (!mEncoderFinish) {
+                        CCLog.d(TAG, "Codec put");
+                        //CCImage cpyImage = new CCImage(ccImage);
+                        //cpyImage =  downScaleCCImage (cpyImage, 0.2f);
+
+                        // origin: ccImage
+                        //CCImage downScaleFrame = downScaleCCImage(ccImage, 0.5f);
+                        CCLog.d(TAG, "TRS: start encoding");
+                        mEncodingImageQueue.add(ccImage);
+//                        mCCVideoReader.returnQueueImage(ccImage);
+                        mCCVideoEncoder.putEncodingBuffer(ccImage);
+//                        mEncodingImageQueue.add(ccImage);
+                    } else {
+                        CCLog.d(TAG, "Codec finish");
+                    }
+                }
+            }
+        };
+        return runnable;
+    }
+
 
     private Runnable getEncodingFrameRunnable(final CCImage ccImage) {
         Runnable runnable = new Runnable() {
@@ -451,62 +539,65 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mSaveThread.start();
         mSaveHandler = new Handler(mSaveThread.getLooper());
 
+        mInputThread = new HandlerThread(("Input"));
+        mInputThread.start();
+        mInputHandler = new Handler(mInputThread.getLooper());
+
+        mStateThread = new HandlerThread(("State"));
+        mStateThread.start();
+        mStateHandler = new Handler(mStateThread.getLooper());
+
+        mPreProcessThread = new HandlerThread(("PreProcess"));
+        mPreProcessThread.start();
+        mPreProcessHandler = new Handler(mPreProcessThread.getLooper());
 
         // Goodsol
         mButtonTRS.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mIsVideoEncoding = true;
+                mIsVideoEncoding = false;
+                mIsTRSEncoding = true;
                 mDecodeBitmapQueue.clear();
                 mDecodeFrameQueue.clear();
                 mInferenceManager.startInference(CCConstants.InferenceInputType.INFERENCE_VIDEO);
                 mEncodingFrameIndex = 0;
 
-                try {
-                    CCLog.i(TAG, "Test TRS start");
-                    for (int i = 0; i < 900; i ++) {
-                        CCLog.i(TAG, "Test TRS start1");
-                        int frame_num = 1001 + i;
-                        String path = "/sdcard/CCVideo/3840/frame_"+frame_num+".jpg";
-                        File f = new File(path);
-                        FileInputStream fis = new FileInputStream(f);
-                        byte[] bytes = new byte[(int) f.length()];
-                        fis.read(bytes);
-                        CCLog.i(TAG, "Test TRS end1 " + frame_num + " " +(int) f.length());
-                        CCImage cc = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
-                        m4kList.add(cc);
-                    }
-                    CCLog.i(TAG, "Test TRS end2");
+                // Define RL agent
+                RLagent = new Agent();
+                RLagent.setListener(mAgentListener);
 
+                // Preprocessing
+                try {
+                    resolution_set.add(m4kList);
+                    resolution_set.add(m2kList);
+                    preprocess_jpeg();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                catch (Exception e){
-                    CCLog.e(TAG, "Test TRS error");
-                }
-                /*
+
+                // Input thread
+                injectInput();
+                getState();
+
                 //SET Video Config
                 float bpp = 0.18f;
                 if (mEditBitrate.getText().toString().trim().length() > 0){
                     bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
-                    mCCVideoWriter.setBitPerPixel(bpp);
-                    mCCVideoWriter.start();
                 }
-                else{
-                    mCCVideoWriter.setBitPerPixel(bpp);
-                    mCCVideoWriter.start();
-                }
+                mBitRate = (int)(bpp * 30 * mWidth * mHeight);
 
                 // Define initial CCVideoWriter
                 mCCVideoEncoder = new CCVideoStreamEncoder();
 //            mEncoder.setImageList(mCCImageList);
                 mCCVideoEncoder.setSize(mWidth, mHeight);
-                mCCVideoEncoder.setKeyFramePerSec(1);
+                mCCVideoEncoder.setKeyFramePerSec(4);
                 mCCVideoEncoder.setFPS(30);
-                mCCVideoEncoder.setListener(mListener);
+                mCCVideoEncoder.setTRSListener(mEncoderListener);
                 mCCVideoEncoder.setColorFormat(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
-                mCCVideoEncoder.setBitrate(getBitrate());
+                mCCVideoEncoder.setBitrate(mBitRate);
                 mCCVideoEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
                 mCCVideoEncoder.start();
-                 */
+
                 // Read states
                 thermalReader = new ThermalReader();
                 thermalReader.readThermal();
@@ -631,6 +722,113 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         });
     }
 
+    // Functions of TRS
+    public void preprocess_jpeg () throws IOException {
+        CCLog.i(TAG, "Test TRS start1");
+        int frame_num = 1001;
+        for (int i = 0; i < 20; i++) {
+            frame_num += i * 10;
+            String path4k = "/sdcard/CCVideo/3840/frame_" + frame_num + ".jpg";
+            String path2k = "/sdcard/CCVideo/1920/frame_" + frame_num + ".jpg";
+            try {
+                File f = new File(path4k);
+                FileInputStream fis = new FileInputStream(f);
+                byte[] bytes = new byte[(int) f.length()];
+                fis.read(bytes);
+                CCImage cc4k = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
+
+                f = new File(path2k);
+                fis = new FileInputStream(f);
+                bytes = new byte[(int) f.length()];
+                fis.read(bytes);
+                CCImage cc2k = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
+                m4kList.add(i, cc4k);
+                m2kList.add(i, cc2k);
+            }
+            catch (Exception e){
+                return;
+            }
+        }
+        //mPreProcessHandler.post(new background_preprocess());
+    }
+
+    public class background_preprocess implements Runnable {
+        public void run (){
+            CCLog.d(TAG, "TRS start background " + mIsTRSEncoding);
+            while(mIsTRSEncoding){
+                long curr_time = System.currentTimeMillis();
+                Random rand = new Random(curr_time);
+                int frame_num = rand.nextInt(500) + 1001;
+                CCLog.d(TAG, "TRS background frame num: " + frame_num);
+
+                String path4k = "/sdcard/CCVideo/3840/frame_" + frame_num + ".jpg";
+                String path2k = "/sdcard/CCVideo/1920/frame_" + frame_num + ".jpg";
+
+                try {
+                    File f = new File(path4k);
+                    FileInputStream fis = new FileInputStream(f);
+                    byte[] bytes = new byte[(int) f.length()];
+                    fis.read(bytes);
+                    CCImage cc4k = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
+
+                    f = new File(path2k);
+                    fis = new FileInputStream(f);
+                    bytes = new byte[(int) f.length()];
+                    fis.read(bytes);
+                    CCImage cc2k = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
+                    m4kList.add(frame_num % 10, cc4k);
+                    m2kList.add(frame_num % 10, cc2k);
+                }
+                catch (Exception e){
+
+                }
+            }
+        }
+    }
+
+    public void injectInput () {
+        mInputHandler.post(new Runnable() {
+            long start = 0;
+            long end = 0;
+            @Override
+            public void run() {
+                for (int i = 0; i < 30000; i++){
+                    try{
+                        Thread.sleep(Math.max(33 - (end-start),0));
+                        start = System.currentTimeMillis();
+                        CCLog.d(TAG, "TRS: Inject start " + start);
+                        CCImage ccImage = resolution_set.get(mResolutionIndex).get(mFrameIndex);
+                        mFrameIndex += 1;
+                        mFrameIndex %= 20;
+                        try {
+                            //Thread.sleep(16);
+                            // Set video resolution here (Goodsol-RLagent)
+                            mDecodeFrameQueue.put(ccImage);
+
+                            if (mDebugShowVideo) {
+                                mDecodeBitmapQueue.put(ImageUtils.convertDownScaledBitmap(ccImage, DOWNSAMPLE_RATIO));
+                            }
+                        } catch (Exception e) {
+
+                        }
+
+                        Message msg = new Message();
+                        msg.what = MSG_DECODE_FRAME;
+                        msg.arg1 = mTestIndex;
+                        mImageUpdateHandler.sendMessage(msg);
+
+                        mTestIndex += 1;
+                        end = System.currentTimeMillis();
+                        CCLog.d(TAG, "TRS: Inject end " + end);
+                    }
+                    catch (Exception e){
+
+                    }
+                }
+            }
+        });
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
@@ -741,12 +939,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         });
     }
 
-    public class ImageDecoder implements Runnable {
-        public void run (){
-
-        }
-    }
-
 
     public class VideoDecoder implements Runnable {
         CCVideoReader.CCVideoReaderListener mReaderListener = new CCVideoReader.CCVideoReaderListener() {
@@ -827,7 +1019,38 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         }
     }
 
+    // TRS RL
+    public void getState () {
+        mStateHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                while(mIsTRSEncoding){
+                    try {
+                        RLagent.transmit_state(thermalReader.temp_state, thermalReader.cool_state, thermalReader.clock_state,
+                                mWidth, mBitRate);
+                        Thread.sleep(1000);
+                    }
+                    catch (Exception e){
 
+                    }
+                }
+            }
+        });
+    }
+
+    Agent.AgentListener mAgentListener = new Agent.AgentListener() {
+        public void setAction (int res, int bitrate, int little_clock, int big_clock){
+            // TODO
+            // set bitrate, clocks, ..
+
+            mResolutionIndex = res;
+
+            // These should be defined with specific functions
+            mBitRateIndex = bitrate;
+            mLittleCpuIndex = little_clock;
+            mBigCpuIndex = big_clock;
+        }
+    };
 
 
 }
