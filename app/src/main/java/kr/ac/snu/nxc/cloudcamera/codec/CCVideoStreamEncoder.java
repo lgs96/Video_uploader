@@ -231,8 +231,14 @@ public class CCVideoStreamEncoder {
         mInputDone = false;
         mEndOfStream = false;
         while (!mEndOfStream) {
-            putCodecInputBuffer();
-            getCodecOutputBuffer(bufferInfo);
+            try {
+                //CCLog.d(TAG, "Enter occurred in Encoder");
+                putCodecInputBuffer();
+                getCodecOutputBuffer(bufferInfo);
+            }
+            catch (Exception e){
+                //CCLog.d(TAG, "Error occurred in Encoder");
+            }
         }
         CCLog.d(TAG, "Encoding END mOutputFrameCount : " + mOutputFrameCount + ", bufferInfo.flags : " + bufferInfo.flags);
         return;

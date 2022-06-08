@@ -141,7 +141,13 @@ public class CCVideoDecoder {
         mInputDone = false;
         mEndOfStream = false;
         while (!mEndOfStream) {
-            mDecodeHandler.post(new runDecodeThread(bufferInfo));
+            try{
+                Thread.sleep(33);
+                mDecodeHandler.post(new runDecodeThread(bufferInfo));
+            }
+            catch (Exception e){
+
+            }
             //putCodecInputBuffer();
             //getCodecOutputBuffer(bufferInfo);
         }
@@ -155,12 +161,14 @@ public class CCVideoDecoder {
         runDecodeThread(MediaCodec.BufferInfo bufferInfo){this.bufferInfo = bufferInfo;}
 
         public void run() {
-            synchronized(mLock) {
-                if (mCloseDone) {
-                    return;
-                }
+            if (mCloseDone) {
+                return;
+            }
+            try {
                 putCodecInputBuffer();
                 getCodecOutputBuffer(bufferInfo);
+            } catch (Exception e) {
+                CCLog.d(TAG, "Error occurred");
             }
         }
     }
@@ -188,9 +196,9 @@ public class CCVideoDecoder {
                 CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId + " End of stream: " + mEndOfStream);
                 long presentationTimeUs = mMediaExtractor.getSampleTime();
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
-                //mMediaExtractor.advance();
-                time_count += 166666;
-                mMediaExtractor.seekTo(time_count, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+                mMediaExtractor.advance();
+                //time_count += 166666;
+                //mMediaExtractor.seekTo(time_count, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 CCLog.d(TAG, "getSampleTrackIndex : " + mMediaExtractor.getSampleTrackIndex() + " " + mMediaExtractor.getSampleTime() + " " + time_count);
             }
         }
@@ -226,35 +234,30 @@ public class CCVideoDecoder {
     }
 
     private void stopThread() {
-        synchronized(mLock) {
-            if (mDecoderHandler != null) {
-                mDecoderHandler.getLooper().quitSafely();
-                mDecoderHandler = null;
-            }
-            CCLog.d(TAG, "stopThread");
+        if (mDecoderHandler != null) {
+            mDecoderHandler.getLooper().quitSafely();
+            mDecoderHandler = null;
         }
+        CCLog.d(TAG, "stopThread");
     }
 
     public void close() {
-        CCLog.d(TAG, "decoder close called");
-        synchronized(mLock) {
-            CCLog.d(TAG, "decoder close loop");
-            if (mMediaCodec != null) {
-                mMediaCodec.stop();
-                mMediaCodec.release();
-                mMediaCodec = null;
-                mCloseDone = true;
-                CCLog.d(TAG, "decoder close");
-            }
-            mMediaExtractor = null;
-            stopThread();
-            CCLog.d(TAG, "decoder close end");
-
-            // Return to stream reader!
-            if (mListener != null) {
-                mListener.closeEncoder();
-            }
+        CCLog.d(TAG, "decoder close loop");
+        if (mMediaCodec != null) {
+            mMediaCodec.stop();
+            mMediaCodec.release();
+            mMediaCodec = null;
+            mCloseDone = true;
+            CCLog.d(TAG, "decoder close");
         }
+        mMediaExtractor = null;
+        // Return to stream reader!
+        if (mListener != null) {
+            CCLog.d(TAG, "decoder close listener called");
+            mListener.closeEncoder();
+        }
+        CCLog.d(TAG, "decoder close end");
+        stopThread();
     }
 
     private void showSupportedColorFormat(MediaCodecInfo.CodecCapabilities caps) {

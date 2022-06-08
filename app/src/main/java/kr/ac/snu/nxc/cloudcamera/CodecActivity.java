@@ -27,7 +27,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -49,6 +51,7 @@ import kr.ac.snu.nxc.cloudcamera.util.CCUtils;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.downScaleCCImage;
+import static kr.ac.snu.nxc.cloudcamera.util.CCConstants.CCFHD;
 import static kr.ac.snu.nxc.cloudcamera.util.CCConstants.MAX_CODEC_QUEUE_SIZE;
 import static kr.ac.snu.nxc.cloudcamera.util.CCConstants.TEMP_VIDEO_PATH;
 
@@ -180,6 +183,10 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     ThermalReader thermalReader;
     CCVideoStreamEncoder mCCVideoEncoder;
 
+    LinkedList<CCImage> m4kList = new LinkedList<CCImage>();
+    LinkedList<CCImage> m3kList = new LinkedList<CCImage>();
+    LinkedList<CCImage> m2kList = new LinkedList<CCImage>();
+
     @Override
     public void onEncodingFinish(CCImage decodeImage, CCImage inferenceImage, double encodeTime) {
         mCCVideoReader.returnQueueImage(decodeImage);
@@ -268,6 +275,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         encode_frame = 0;
                         encode_byte = 0;
                         CCLog.d(TAG, "Decoding record is " + content);
+                    }
+
+                    // Resolution change test
+                    if (total_frameCount == 30){
+                        closeToRestart();
                     }
 
                 } catch (Exception e) {
@@ -399,7 +411,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         actionBar.setDisplayHomeAsUpEnabled(true);
 
         mVideoPath = intent.getStringExtra(CCConstants.KEY_VIDEO_PATH);
-        CCLog.d(TAG, "YuvDirPath : " + mVideoPath);
+        CCLog.d(TAG, "Video path : " + mVideoPath);
         Toast.makeText(mContext, "Load " + mVideoPath, Toast.LENGTH_SHORT).show();
 
         HandlerThread ht = new HandlerThread("CameraPreview");
@@ -450,6 +462,27 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mInferenceManager.startInference(CCConstants.InferenceInputType.INFERENCE_VIDEO);
                 mEncodingFrameIndex = 0;
 
+                try {
+                    CCLog.i(TAG, "Test TRS start");
+                    for (int i = 0; i < 900; i ++) {
+                        CCLog.i(TAG, "Test TRS start1");
+                        int frame_num = 1001 + i;
+                        String path = "/sdcard/CCVideo/3840/frame_"+frame_num+".jpg";
+                        File f = new File(path);
+                        FileInputStream fis = new FileInputStream(f);
+                        byte[] bytes = new byte[(int) f.length()];
+                        fis.read(bytes);
+                        CCLog.i(TAG, "Test TRS end1 " + frame_num + " " +(int) f.length());
+                        CCImage cc = ImageUtils.convertCCImage(bytes, mWidth, mHeight, mWidth);
+                        m4kList.add(cc);
+                    }
+                    CCLog.i(TAG, "Test TRS end2");
+
+                }
+                catch (Exception e){
+                    CCLog.e(TAG, "Test TRS error");
+                }
+                /*
                 //SET Video Config
                 float bpp = 0.18f;
                 if (mEditBitrate.getText().toString().trim().length() > 0){
@@ -473,6 +506,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mCCVideoEncoder.setBitrate(getBitrate());
                 mCCVideoEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
                 mCCVideoEncoder.start();
+                 */
                 // Read states
                 thermalReader = new ThermalReader();
                 thermalReader.readThermal();
@@ -648,6 +682,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     public void runUpload (){
         CCLog.d(TAG, "Run upload called");
+
+        mVideoPath = CCFHD;
+        readVideoInfo();
+
+        CCLog.d(TAG, "Video path: " +  mVideoPath);
 
         mIsVideoEncoding = true;
         mDecodeBitmapQueue.clear();

@@ -101,8 +101,6 @@ public class CCVideoReader {
                 mDecoder.start(mime);
                 CCLog.d(TAG, "CCVideoReader Decoder no error");
                 CCLog.d(TAG, "VideoReader initial operation end");
-
-                CCLog.e(TAG, "Error no video track");
             } catch (Exception e) {
                 CCLog.e(TAG, "CCVideoReader Exception");
                 if (mReaderListener != null) {
@@ -122,11 +120,6 @@ public class CCVideoReader {
             if (mDecoder != null) {
                 mDecoder.close();
                 mDecoder = null;
-            }
-
-            if (mExtractor != null) {
-                mExtractor.release();
-                mExtractor = null;
             }
             CCLog.d(TAG, "Close Reader end");
         }
@@ -152,14 +145,12 @@ public class CCVideoReader {
                 mReaderListener.onError(errorMsg);
             }
         }
-
         @Override
         public void onFinish() {
             if (mReaderListener != null) {
                 mReaderListener.onFinish();
             }
         }
-
         @Override
         public void onDrainOutputImage(int index, Image image) {
             synchronized (mLock) {
@@ -173,10 +164,13 @@ public class CCVideoReader {
                 }
             }
         }
-
         @Override
         public void closeEncoder(){
             if (mReaderListener != null) {
+                if (mExtractor != null) {
+                    mExtractor.release();
+                    mExtractor = null;
+                }
                 mReaderListener.closeWriter();
             }
         }
