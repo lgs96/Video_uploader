@@ -304,7 +304,7 @@ public class CCVideoStreamEncoder {
         mEndOfStream = false;
         try{
             mEncoderHandler.post(new CCVideoStreamEncoder.runEncodeThread(mBufferInfo));
-            CCLog.d(TAG, "TRS: encoding mStarted" + mStarted + " " + this);
+            CCLog.d(TAG, "TRS: encoding mStarted" + mStarted + " " + handlerThread.getId());
         }
         catch (Exception e){
 

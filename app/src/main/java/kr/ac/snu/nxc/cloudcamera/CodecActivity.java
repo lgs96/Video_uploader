@@ -1239,7 +1239,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                     // Set bitrate (0.2~1)
 
-                    mBitRateIndex = Math.max(mBitRateIndex/2 + bitrate, 1);
+                    mBitRateIndex = Math.max(mBitRateIndex + bitrate, 1);
                     mBitRateIndex = Math.min(mBitRateIndex, mMaxBitRateIndex);
 
                     // CPU index

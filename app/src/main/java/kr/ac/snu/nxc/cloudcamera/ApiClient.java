@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import kr.ac.snu.nxc.cloudcamera.util.CCImage;
@@ -43,6 +44,7 @@ import retrofit2.http.Header;
 import retrofit2.http.Multipart;
 import retrofit2.http.POST;
 import retrofit2.http.Part;
+import retrofit2.http.Query;
 
 public class ApiClient {
 
@@ -92,6 +94,7 @@ public class ApiClient {
                         .create();
                 retrofit = new retrofit2.Retrofit.Builder()
                         .baseUrl(BASE_URL_API).client(client)
+                        .callbackExecutor(Executors.newSingleThreadExecutor())
                         .addConverterFactory(GsonConverterFactory.create(gson))
                         .build();
                 CCLog.i(TAG, "Retrofit gen");
@@ -99,6 +102,32 @@ public class ApiClient {
             return retrofit;
         }
     }
+
+    public interface ResetService {
+        @GET("reset")
+        Call <ResponseBody> getName(@Query("name") int name);
+    }
+
+    public void reset_episode (){
+                ResetService service = r1.getRetrofitInstance().create(ResetService.class);
+
+                Call<ResponseBody> call = service.getName(1);
+                call.enqueue(new Callback<ResponseBody>() {
+                    @Override
+                    public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                        if (response.isSuccessful()) {
+                            CCLog.d(TAG, "Get Success: " + response.message());
+                        } else {
+                            CCLog.d(TAG, "Get Error: " + response.message());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ResponseBody> call, Throwable t) {
+                        CCLog.d(TAG, "Get Failure " + BASE_URL_API + " " + call);
+                    }
+                });
+        }
 
     public interface UploadReceiptService {
         @Multipart
