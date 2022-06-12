@@ -69,7 +69,7 @@ public class CCVideoDecoder {
     public void start(final String mime) {
         mOutputFrameCount = 0;
         synchronized (mLock) {
-            HandlerThread handlerThread = new HandlerThread("CCVideoDecoder", Process.THREAD_PRIORITY_FOREGROUND);
+            HandlerThread handlerThread = new HandlerThread("CCVideoDecoder", Process.THREAD_PRIORITY_LOWEST);
             handlerThread.start();
             mDecoderHandler = new Handler(handlerThread.getLooper());
             mDecoderHandler.post(new Runnable() {
@@ -143,7 +143,6 @@ public class CCVideoDecoder {
         mEndOfStream = false;
         while (!mEndOfStream) {
             try{
-                Thread.sleep(33);
                 mDecodeHandler.post(new runDecodeThread(bufferInfo));
             }
             catch (Exception e){
@@ -168,6 +167,7 @@ public class CCVideoDecoder {
             try {
                 putCodecInputBuffer();
                 getCodecOutputBuffer(bufferInfo);
+                Thread.sleep(50);
             } catch (Exception e) {
                 CCLog.d(TAG, "Error occurred");
             }
@@ -197,7 +197,7 @@ public class CCVideoDecoder {
                 CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId + " End of stream: " + mEndOfStream);
                 long presentationTimeUs = mMediaExtractor.getSampleTime();
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
-                mMediaExtractor.advance();
+                //mMediaExtractor.advance();
                 //time_count += 16666;
                 //mMediaExtractor.seekTo(time_count, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 CCLog.d(TAG, "getSampleTrackIndex : " + mMediaExtractor.getSampleTrackIndex() + " " + mMediaExtractor.getSampleTime() + " " + time_count);

@@ -3,15 +3,22 @@ package kr.ac.snu.nxc.cloudcamera.RLagent;
 
 import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.HOST;
 import static kr.ac.snu.nxc.cloudcamera.CloudInferenceManager.PORT;
+import static kr.ac.snu.nxc.cloudcamera.CodecActivity.resolution_states;
 
 import android.media.Image;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import kr.ac.snu.nxc.cloudcamera.ApiClient;
+import kr.ac.snu.nxc.cloudcamera.util.CCLog;
 
 public class Agent {
+    private final String TAG = "Agent";
+
     // network agent
     ApiClient api;
 
@@ -35,38 +42,48 @@ public class Agent {
     public void setListener (AgentListener listener){mListener = listener;}
 
     public interface AgentListener {
-        public void setAction (int res, int bitrate, int little_clock, int big_clock);
+        public void setAction (int res, int bitrate, int big_clock);
     }
 
     ApiClient.UploadListener mUploadListener = new ApiClient.UploadListener() {
         @Override
-        public void onResponse(String response) throws JSONException {
-            JSONObject jObject = new JSONObject(response);
-            receive_action (jObject);
+        public void onResponse(String response){
+            receive_action (response);
         }
     };
 
-    public void transmit_state (int [] temp, int [] cool, int [] clock,
-                                int resolution, int bitrate) throws JSONException {
-        JSONObject obj = new JSONObject();
-        obj.put("little_temp", temp[0]);
-        obj.put("big_temp", temp[1]);
-        obj.put("modem_temp", temp[2]);
-        obj.put("cooling", cool[0]);
-        obj.put("little_clock", clock[0]);
-        obj.put("big_clock1", clock[1]);
-        obj.put("big_clock2", clock[2]);
-        obj.put("res", resolution);
-        obj.put("bitrate", bitrate);
+
+    public void transmit_state (int encode_fps, int network_fps, int [] temp, int [] cool, int [] clock,
+                                int resolution, int bitrate){
+
+        resolution = resolution_states[resolution];
+
+        JsonObject obj = new JsonObject();
+        //Encoding rate
+        //E2E frame rate
+        obj.addProperty("encode_fps", encode_fps);
+        obj.addProperty("network_fps", network_fps);
+        obj.addProperty("big_temp", temp[1]);
+        obj.addProperty("modem_temp", temp[2]);
+        //obj.addProperty("cooling", cool[0]);
+        obj.addProperty("big_clock2", clock[2]);
+        obj.addProperty("res", resolution);
+        //obj.addProperty("bitrate", bitrate);
         api.state_tx(obj);
+        CCLog.d(TAG, "transmit state");
     }
 
-    public void receive_action (JSONObject action) throws JSONException {
-        resolution = Integer.parseInt(action.getString("res"));
-        bitrate = Integer.parseInt(action.getString("bitrate"));
-        little_clock  = Integer.parseInt(action.getString("little_clock"));
-        big_clock  = Integer.parseInt(action.getString("big_clock"));
+    public void receive_action (String action) {
+        CCLog.d(TAG, "Receive action " + action);
+        try {
+            JSONObject jObject = new JSONObject(action);
+            resolution = Integer.parseInt(jObject.getString("res"));
+            bitrate = Integer.parseInt(jObject.getString("bitrate"));
+            big_clock  = Integer.parseInt(jObject.getString("clock"));
 
-        mListener.setAction(resolution, bitrate, little_clock, big_clock);
+            mListener.setAction(resolution, bitrate, big_clock);
+        }
+        catch(Exception e){
+        }
     }
 }

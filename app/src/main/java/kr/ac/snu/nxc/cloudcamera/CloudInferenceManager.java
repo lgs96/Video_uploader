@@ -6,6 +6,7 @@ import android.net.TrafficStats;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.Pair;
 import android.widget.Button;
 import android.widget.TextView;
@@ -20,9 +21,11 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import kr.ac.snu.nxc.cloudcamera.library.ImageUtils;
 import kr.ac.snu.nxc.cloudcamera.util.CCConstants;
@@ -40,10 +43,10 @@ public class CloudInferenceManager {
     private final static String TAG = "CloudShotManager";
     private static final String AROHA_TAG = "AROHA";
 
-    public static final String HOST = "seoul.overlinkapp.org";
+    public static final String HOST = "147.46.132.236";
 //    private static final String HOST = "192.168.1.5";
-    public static final int PORT = 3030;
-    private static final int PORT2 = 8486;
+    public static final int PORT = 8888;
+    private static final int PORT2 = 8889;
 
     //Socket MSG
     private static final int CONN_OK = 1000;
@@ -56,7 +59,7 @@ public class CloudInferenceManager {
     private static final int RESULT_IMAGE = 9999999;
     private static final int CLOSE_CAMERA = 88888;
 
-    private static final int INIT_SOCKET_INTERVAL = 2000;
+    private static final int INIT_SOCKET_INTERVAL = 1000;
     private static final int KEEP_SOCKET_INIT_INTERVAL = 1000;
     private static final int KEEP_SOCKET_INTERVAL = 500;
 
@@ -72,9 +75,9 @@ public class CloudInferenceManager {
     private byte[] mRecvMsg = null;
     private byte[] mRecvAlphaLength = null;
     private byte[] mRecvAlpha = null;
-    private boolean mSocketConn = false;
+    private static boolean mSocketConn = false;
     private boolean mSocketResultConn = false;
-    private Socket mSocket = null;
+    private static Socket mSocket = null;
     private DataInputStream mSocketIn = null;
     private DataOutputStream mSocketOut = null;
 
@@ -100,20 +103,31 @@ public class CloudInferenceManager {
     TextView mPerftv;
     private CodecActivity codec_activity;
 
+    public CronetClient mClient = null;
+
     long network_last_milli = System.currentTimeMillis();
+
+    // TCP socket
 
     ApiClient.UploadListener mUploadListener = new ApiClient.UploadListener() {
         @Override
-        public void onResponse(String response) throws JSONException {
+        public void onResponse(String response)  {
             mPerftv.setText("Network performance: " + response);
+            try {
                 JSONObject jObject = new JSONObject(response);
                 String fps = jObject.getString("fps");
                 String throughput = jObject.getString("th");
 
                 codec_activity.network_fps = Float.parseFloat(fps);
                 codec_activity.network_th = Float.parseFloat(throughput);
+            }
+            catch(Exception e){
+
+            }
         }
     };
+
+
 
     public CloudInferenceManager(Context context, InferenceCallback callback) {
         mContext = context;
@@ -173,7 +187,8 @@ public class CloudInferenceManager {
     public void setState(boolean enabled) {
         if (enabled) {
             //mSocketHandler.postDelayed(new InitSocketRunnable(), INIT_SOCKET_INTERVAL);
-            mSocketConn = true;
+            //initSocket();
+            //mSocketConn = true;
         } else {
             closeSocket();
         }
@@ -221,7 +236,6 @@ public class CloudInferenceManager {
         return returnTime;
     }
 
-
     public static CCImage downScaleCCImage(CCImage ccImage, float downSampleRatio) {
         int resizeW = (int)((float)ccImage.mWidth * downSampleRatio);
         int resizeH = (int)((float)ccImage.mHeight * downSampleRatio);
@@ -249,7 +263,9 @@ public class CloudInferenceManager {
         CCLog.d(TAG, "inferenceImage : " + frameIndex);
 //        mEncodingHandler.post(new EncodingFrameRunnable(frameIndex, ccImage));
         api.uploadFile(buffer);
-       // mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));
+        //mClient.startSending();
+        //transmitFrame(encodedSize, buffer);
+       //mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));
     }
 
     public void encodingFrame(int frameIndex, CCImage ccImage) {
@@ -321,6 +337,7 @@ public class CloudInferenceManager {
         }
     }
 
+
     class InitSocketRunnable implements Runnable {
         public void run() {
             synchronized (mSocketLock) {
@@ -330,7 +347,7 @@ public class CloudInferenceManager {
                 }
 
                 try {
-                    NTPTime = getCurrentNetworkTime();
+                    //NTPTime = getCurrentNetworkTime();
                     long current_system_time = System.currentTimeMillis();
                     NTPTime = NTPTime - current_system_time;
                     CCLog.d(AROHA_TAG, "Server time: " + NTPTime);
@@ -339,47 +356,39 @@ public class CloudInferenceManager {
                     for (int i = 0; i < retry; i++) {
                         try {
                             mSocketHandler.removeCallbacksAndMessages(null);
+                            CCLog.d(TAG, "Socket Init22");
 
                             mSocket = new Socket(HOST, PORT);
+                            mSocketConn = true;
+                            CCLog.d(TAG, "Socket1 Connected " + mSocket);
 
                             mSocketOut = new DataOutputStream(mSocket.getOutputStream());
                             mSocketIn = new DataInputStream(mSocket.getInputStream());
+
                             long t0 = System.currentTimeMillis();
-                            CCLog.d(AROHA_TAG, "[Time Sync] t0: " + t0);
-                            mSocketOut.write(ByteBuffer.allocate(8).putLong(t0).array());
-                            mSocketOut.flush();
+                            //mSocketOut.write(ByteBuffer.allocate(8).putLong(t0).array());
 
-                            byte[] temp = new byte[8];
 
-                            mSocketIn.read(temp, 0, 4);
-                            float t1 = byteToFloat(temp);
-                            mSocketIn.read(temp, 0, 4);
-                            float t2 = byteToFloat(temp);
-                            CCLog.d(AROHA_TAG, "[Time Sync] t1: " + (long)t1);
-                            CCLog.d(AROHA_TAG, "[Time Sync] t2: " + (long)t2);
-                            long t3 = System.currentTimeMillis();
-                            mSocketOut.write(ByteBuffer.allocate(8).putLong(t3).array());
-                            CCLog.d(AROHA_TAG, "[Time Sync] t3: " + t3);
-                            float offset = ((t1 - t0) + (t2 - t3))/2;
-                            CCLog.d(AROHA_TAG, "[Time Sync] offset: " + offset);
+                            //break;
+                            /*
+                            mSocketResult = new Socket(HOST, PORT2);
+                            mSocketResultOut = new DataOutputStream(mSocketResult.getOutputStream());
+                            mSocketResultIn = new DataInputStream(mSocketResult.getInputStream());
+                            CCLog.d(TAG, "Socket2 Connected");
+                            mSocketResultConn = true;
+                            */
 
-                            int len = mSocketIn.read(mRecvMsg, 0, 4);
-                            if (byteToInt(mRecvMsg) == CONN_OK) {
-                                mSocketConn = true;
-                                CCLog.d(TAG, "Socket Connected");
-                                Thread.sleep(3000);
-                                mSocketResult = new Socket(HOST, PORT2);
-                                mSocketResultOut = new DataOutputStream(mSocketResult.getOutputStream());
-                                mSocketResultIn = new DataInputStream(mSocketResult.getInputStream());
-                                CCLog.d(TAG, "Socket2 Connected");
-                                mSocketResultConn = true;
-                                break;
-                            }
+                            //mSocketOut.write(ByteBuffer.allocate(8).putLong(t0).array());
+                            //mSocketOut.flush();
+
+                            //mSocketOut.write(ByteBuffer.allocate(8).putLong(t0).array());
+                            //mSocketOut.flush();
+
                         } catch (SocketException se) {
                             CCLog.d(TAG, se.getMessage());
                             closeSocket();
                             try {
-                                Thread.sleep(100);
+                                Thread.sleep(1000);
                             } catch (Exception e) {
 
                             }
@@ -469,49 +478,35 @@ public class CloudInferenceManager {
             mEncodedSize = encodedSize;
             mCompressedBytes = compressedBytes;
             mFrameIndex = frameIndex;
+            CCLog.d(TAG, "Run socket " + encodedSize + " " + mFrameIndex);
+            run();
         }
 
         public void run() {
+            CCLog.d(TAG, "Run socket");
             try {
                 if (!mSocketConn) {
                     CCLog.e(TAG, "Socket is not connected");
                     return;
                 }
-
-//                if(!CodecActivity.SendQueue.isEmpty()) {
-//                    mCompressedBytes = CodecActivity.SendQueue.take();
-
                     long send_start = System.currentTimeMillis();
-                    long start = TrafficStats.getUidTxBytes(mContext.getApplicationInfo().uid);
-//                long send_start = getCurrentNetworkTime();
-//                double send_start = SystemClock.currentThreadTimeMillis()-NTPTime;
-                    mSocketOut.write(ByteBuffer.allocate(4).putInt(mEncodedSize).array());
-                    mSocketOut.write(ByteBuffer.allocate(8).putLong(send_start).array());
-                    mSocketOut.write(mCompressedBytes, 0, mEncodedSize);
-                    mSocketOut.flush();
-//                    long packet = 0;
-//                    while(true) {
-//                        long end = TrafficStats.getUidTxBytes(mContext.getApplicationInfo().uid);
-//                        packet = end - start;
-//                        if (packet >= (mEncodedSize + 16)) {
-//                            break;
-//                        }
-//                        try {
-//                            Thread.sleep(5);
-//                        } catch (Exception e) {
-//
-//                        }
-//                    }
-                    double sendTime = System.currentTimeMillis()- send_start;
-//                    double bw = (((float)packet*8)/(1024*1024))/(sendTime/1000);
-//                    CCLog.d(AROHA_TAG, "Send packet: " + packet + " Send time: " + sendTime);
+                    //mSocketOut.write(ByteBuffer.allocate(4).putInt(mEncodedSize).array());
+                    ByteBuffer b =ByteBuffer.allocate(4);
+                    b.order(ByteOrder.LITTLE_ENDIAN);
+                    b.putInt(mEncodedSize);
 
-//                long sendTime = getCurrentNetworkTime()- send_start;
-//                double sendTime = SystemClock.currentThreadTimeMillis()-NTPTime- send_start;
+                    mSocketOut.write(b.array(), 0, 4);
+                    mSocketOut.write(mCompressedBytes, 0 ,mEncodedSize);
+                    //mSocketOut.flush();
 
-                    mCallback.onSendFinish(send_start, sendTime, mEncodedSize);
+                    CCLog.d(TAG, "Flush!!");
 
-                    CCLog.d(AROHA_TAG, "[" + mFrameIndex + "] Socket Send Finish " +  sendTime + " ms  Data size : " + mEncodedSize + " bytes " + CCUtils.getBytesToMB(mEncodedSize));
+                    //mCallback.onSendFinish(send_start, 0, mEncodedSize);
+
+                    CCLog.d(TAG, "Goodsol " +"[" + mFrameIndex + "]" + " Data size : " + mEncodedSize + " bytes " + CCUtils.getBytesToMB(mEncodedSize) + " " + mCompressedBytes.length);
+
+                    Thread.sleep(10);
+
 //                }
 
             } catch (Exception e) {

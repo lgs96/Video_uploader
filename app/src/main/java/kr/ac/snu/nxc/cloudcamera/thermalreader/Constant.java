@@ -5,6 +5,8 @@ public class Constant {
     public final static String cooling_path = "/sys/class/thermal/cooling_device";
     public final static String cpu_path = "/sys/devices/system/cpu/cpufreq/policy";
 
+    public final static String set_cpu_path = "/sys/devices/system/cpu/cpu";
+
     public final static int TEMP_ID = 0;
     public final static int COOL_ID = 1;
     public final static int CPU_ID = 2;

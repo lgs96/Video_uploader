@@ -69,7 +69,7 @@ public class CCVideoReader {
         try {
             CCLog.d(TAG, "initQueue ");
             //mCodecFrameQueue.put(usedImage);
-            mCodecFrameQueue.put(new CCImage(init_width, init_height, init_width, 0));
+            //mCodecFrameQueue.put(new CCImage(init_width, init_height, init_width, 0));
         } catch (Exception e) {
 
         }
@@ -78,7 +78,6 @@ public class CCVideoReader {
     public void start() {
         synchronized (mLock) {
             try {
-
                 CCLog.d(TAG, "VideoReader initial operation start");
                 mExtractor = new MediaExtractor();
                 mExtractor.setDataSource(mSavedFilePath);
@@ -94,6 +93,7 @@ public class CCVideoReader {
                 mExtractor.selectTrack(mTrackIndexOfVideo);
                 MediaFormat mediaFormat = mExtractor.getTrackFormat(mTrackIndexOfVideo);
                 String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
+                //String mime = MediaFormat.MIMETYPE_VIDEO_VP9;
 
                 CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
@@ -156,7 +156,7 @@ public class CCVideoReader {
             synchronized (mLock) {
                 if (mReaderListener != null) {
                     try {
-                        CCImage decodeImage = mCodecFrameQueue.take();
+                        CCImage decodeImage = new CCImage(init_width, init_height, init_width, 0);//mCodecFrameQueue.take();
                         decodeImage.update(image);
                         mReaderListener.onDecodedImage(index, decodeImage);
                     } catch (Exception e) {

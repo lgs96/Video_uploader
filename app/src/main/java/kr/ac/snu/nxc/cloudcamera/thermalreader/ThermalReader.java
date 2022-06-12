@@ -5,6 +5,7 @@ import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.CPU_ID;
 import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.TEMP_ID;
 import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.cooling_path;
 import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.cpu_path;
+import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.set_cpu_path;
 import static kr.ac.snu.nxc.cloudcamera.thermalreader.Constant.temp_path;
 
 import android.Manifest;
@@ -27,6 +28,7 @@ import kr.ac.snu.nxc.cloudcamera.thermalreader.Config;
 import kr.ac.snu.nxc.cloudcamera.util.CCLog;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -77,6 +79,15 @@ public class ThermalReader {
     public int [] cool_state;
     public int [] clock_state;
 
+    public String big1_path;
+    public String big2_path;
+    public int [] avail_cpu_freq1;
+    public int [] avail_cpu_freq2;
+
+    // action
+    public int mActionindex1;
+    public int mActionindex2;
+
     public void readThermal (){
 
         File dir = new File("/sdcard/zts/");
@@ -89,7 +100,12 @@ public class ThermalReader {
             }
         }
 
-        InitializeTrace();
+        try {
+            InitializeTrace();
+        }
+        catch (Exception e){
+
+        }
         // Start tracing for every second
         CCLog.d(TAG, "Start thermal tracing");
         mTraceThread = new HandlerThread("Trace");
@@ -98,9 +114,8 @@ public class ThermalReader {
         mTraceHandler.post(new StartTrace());
     }
 
-    public void InitializeTrace (){
+    public void InitializeTrace () throws IOException {
         // Get types of target traces. It will be used as a legend of a graph.
-
         final SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
         stat_time = f.format(new Date());
         Config.getConfiguration();
@@ -110,6 +125,34 @@ public class ThermalReader {
         cpu_types.add("Little");
         cpu_types.add("Big1");
         cpu_types.add("Big2");
+
+        big1_path = set_cpu_path + Integer.toString(Config.cpu_index.get(1)) + "/cpufreq";
+        big2_path = set_cpu_path + Integer.toString(Config.cpu_index.get(2)) + "/cpufreq";
+
+        String avail1 = big1_path + "/scaling_available_frequencies";
+        String avail2 = big2_path + "/scaling_available_frequencies";
+
+        //Process p = Runtime.getRuntime().exec("su");
+        //DataOutputStream os = new DataOutputStream(p.getOutputStream());
+        CCLog.d (TAG, "CPU clock 1");
+        ArrayList<String> avail_freq1 = ReadFileSplit(avail1);
+        ArrayList<String> avail_freq2 = ReadFileSplit(avail2);
+
+        avail_cpu_freq1 = new int [avail_freq1.size()];
+        avail_cpu_freq2 = new int [avail_freq2.size()];
+
+        CCLog.d (TAG, "CPU clock 2 " + avail_freq1.size());
+        for (int i = 0; i < avail_freq1.size(); i++){
+            avail_cpu_freq1[i] = Integer.parseInt(avail_freq1.get(i));
+        }
+        for (int i = 0; i < avail_freq2.size(); i++){
+            avail_cpu_freq2[i] = Integer.parseInt(avail_freq2.get(i));
+        }
+
+        CCLog.d (TAG, "CPU clock 3");
+        mActionindex1 = (int)(avail_freq1.size()/2);
+        mActionindex2 = (int)(avail_freq2.size()/2);
+        setCPUclock(0);
 
         temp_values = new ArrayList[Config.temp_index.size()];
         cooling_values = new ArrayList[Config.cooling_index.size()];
@@ -272,6 +315,30 @@ public class ThermalReader {
         return strBuffer.toString();
     }
 
+    public ArrayList<String> ReadFileSplit (String path){
+        StringBuffer strBuffer = new StringBuffer();
+        ArrayList<String> words = new ArrayList<>();
+        String [] wordsArray;
+        try{
+            InputStream is = new FileInputStream(path);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String line="";
+            while((line=reader.readLine())!=null){
+                CCLog.d(TAG, "Split Path: " + path);
+                CCLog.d(TAG, "Split Line: " + line);
+                wordsArray = line.split(" ");
+                for (String each : wordsArray){
+                    words.add(each);
+                }
+            }
+            reader.close();
+            is.close();
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+        return words;
+    }
+
     public void writeToFile(String content, String folder_name, String fileName) {
 
         FileWriter fileWriter = null;
@@ -302,5 +369,45 @@ public class ThermalReader {
         }
     }
 
+    public void setCPUclock (int cpu_index) {
+        if (cpu_index ==0 ){
+            return;
+        }
 
+        CCLog.d(TAG, "Start to setup CPU clock1 " + mActionindex1 + " " + mActionindex2);
+        mActionindex1 += cpu_index;
+        mActionindex1 = Math.max(mActionindex1, 0);
+        mActionindex1 = Math.min(mActionindex1, avail_cpu_freq1.length - 1);
+        mActionindex2 += cpu_index;
+        mActionindex2 = Math.max(mActionindex2, 0);
+        mActionindex2 = Math.min(mActionindex2, avail_cpu_freq2.length - 1);
+        CCLog.d(TAG, "Start to setup CPU clock2 " + mActionindex1 + " " + mActionindex2);
+        int current_cpu_clock1 = avail_cpu_freq1[mActionindex1];
+        int current_cpu_clock2 = avail_cpu_freq2[mActionindex2];
+
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes("echo userspace > " + big1_path + "/scaling_governor\n");
+            os.writeBytes("echo userspace > " + big2_path + "/scaling_governor\n");
+            os.writeBytes("echo " + current_cpu_clock1 + " > " +big1_path+ "/scaling_max_freq\n");
+            os.writeBytes("echo " + current_cpu_clock1 + " > " +big1_path+ "/scaling_min_freq\n");
+            os.writeBytes("echo " + current_cpu_clock2 + " > " +big2_path+ "/scaling_max_freq\n");
+            os.writeBytes("echo " + current_cpu_clock2 + " > " +big2_path+ "/scaling_min_freq\n");
+            os.writeBytes("exit\n");
+
+            os.flush();
+            os.close();
+
+            String big = "";
+            List<String> cpu_list = GetList(cpu_path, Config.cpu_index, "scaling_cur_freq");
+            for (int i = 0; i < cpu_values.length; i++) {
+                big = cpu_list.get(i);
+            }
+            CCLog.d(TAG, "Set CPU clock done " + " CPU index: " +cpu_index + " "+  current_cpu_clock1 + " " + current_cpu_clock2 + " " + avail_cpu_freq1.length + " Real: " + big);
+        }
+        catch (Exception e){
+            CCLog.d(TAG, "Set CPU clock exception");
+        }
+    }
 }

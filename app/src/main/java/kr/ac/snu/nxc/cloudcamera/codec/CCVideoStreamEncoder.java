@@ -35,14 +35,21 @@ public class CCVideoStreamEncoder {
 
     private int mKeyFramePerSec = -1;
     private int mFPS = -1;
-    private int mWidth = -1;
+    public int mWidth = -1;
     private int mHeight = -1;
-    private int mBitRate = -1;
+    public int mBitRate = -1;
     private int mBitRateMode = -1;
     private int mColorFormat;
     private long mPrevTimeStamp;
 
-    private Handler mEncoderHandler;
+    //Goodsol
+    public int mNextBitRate = 0;
+
+    private static HandlerThread handlerThread;
+    private static Handler mEncoderHandler;
+
+    HandlerThread mEncodeMainThread = null;
+    Handler mEncodeMainHandler = null;
 
     private int mOutputFrameCount = 0;
 
@@ -56,10 +63,11 @@ public class CCVideoStreamEncoder {
 
     private int bufferSize = -1;
 
-    private boolean mStarted = false;
+    public boolean mStarted = false;
 
     private boolean mFirstFrame = true;
     private boolean mFinish = false;
+    public MediaCodec.BufferInfo mBufferInfo;
 
     public static LinkedBlockingQueue<CCImage> mEncodingQueue = new LinkedBlockingQueue<CCImage>(20);
 
@@ -75,6 +83,9 @@ public class CCVideoStreamEncoder {
 
     public interface TRSEncoderListener {
         public void onEncodedBuffer(MediaCodec.BufferInfo bufferInfo, ByteBuffer byteBuffer);
+        public void startNextResolution();
+        public void getPermission();
+        public void onRestart();
     }
 
 //    public void setImageList(LinkedList<CCImage> imageList) {
@@ -116,26 +127,51 @@ public class CCVideoStreamEncoder {
     }
 
     public void start() {
-        synchronized (mLock) {
-            HandlerThread handlerThread = new HandlerThread("CCVideoEncoder", Process.THREAD_PRIORITY_FOREGROUND);
-            handlerThread.start();
-            mEncoderHandler = new Handler(handlerThread.getLooper());
-            mEncoderHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        initialize();
-                        encode();
-                    } catch (IOException e) {
-                        if (mListener != null) {
-                            mListener.onError("Encoder IO Exception");
-                        }
-                        e.printStackTrace();
-                        CCLog.e(TAG, e.getMessage());
+        handlerThread = new HandlerThread("CCVideoEncoder", Process.THREAD_PRIORITY_FOREGROUND);
+        handlerThread.start();
+        mEncoderHandler = new Handler(handlerThread.getLooper());
+
+        //mEncodeMainThread = new HandlerThread(("Encode"));
+        //mEncodeMainThread.start();
+        //mEncodeMainHandler = new Handler(mEncodeMainThread.getLooper());
+
+        mEncoderHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    initialize();
+                    //encode();
+                } catch (IOException e) {
+                    if (mListener != null) {
+                        mListener.onError("Encoder IO Exception");
                     }
+                    e.printStackTrace();
+                    CCLog.e(TAG, e.getMessage());
                 }
-            });
-        }
+            }
+        });
+    }
+
+    public void encode_start () {
+        mEncoderHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    //mMediaCodec.flush();
+                    encode();
+                } catch (Exception e) {
+                    if (mListener != null) {
+                        mListener.onError("Encoder IO Exception");
+                    }
+                    e.printStackTrace();
+                    CCLog.e(TAG, e.getMessage());
+                }
+            }
+        });
+    }
+
+    public void stop() {
+        mFinish = true;
     }
 
     public void setNewMediaFormat(){
@@ -160,9 +196,13 @@ public class CCVideoStreamEncoder {
         }
     }
 
-    public void stop() {
-        CCLog.d(TAG, "Stop");
-        mFinish = true;
+    public void changeBitRate (int bpp) {
+        CCLog.d(TAG, "Change bitrate from "+ mBitRate + " to " + bpp + " " + mWidth + " " + mHeight);
+        mBitRate = bpp*mWidth*mHeight*3;
+        Bundle bundle = new Bundle();;
+        bundle.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, mBitRate);
+        CCLog.d(TAG, "Request Sync Input" + mWidth + " " + mBitRate/1e6);
+        mMediaCodec.setParameters(bundle);
     }
 
     public void initialize() throws IOException {
@@ -194,6 +234,9 @@ public class CCVideoStreamEncoder {
         mMediaFormat.setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval);
         mPrevTimeStamp = 0;//mCCImageList.get(0).mTimestamp;
 
+        mMediaCodec.configure(mMediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        mMediaCodec.start();
+
         CCLog.d(TAG, "Bitrate : " + mBitRate + "I Frame Interval : " + iFrameInterval
                 + " COLOR_STANDARD_BT709 - COLOR_RANGE_FULL");
     }
@@ -210,16 +253,15 @@ public class CCVideoStreamEncoder {
         }
         try {
             long start = SystemClock.uptimeMillis();
-
-            mMediaCodec.configure(mMediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            mMediaCodec.start();
             mStarted = true;
             mOutputFormat = mMediaCodec.getOutputFormat();
 
             long end = SystemClock.uptimeMillis();
             mEncodingTime += (end - start);
+            mBufferInfo = new MediaCodec.BufferInfo();
 
-            encodeVideoFromBuffer();
+            CCLog.d(TAG, "encoding start!!" + mStarted);
+            //encodeVideoFromBuffer();
         } catch (Exception e) {
             e.printStackTrace();
             if(mListener != null) {
@@ -230,36 +272,72 @@ public class CCVideoStreamEncoder {
 
         CCLog.d(TAG, "finish");
         if (mListener != null) {
-            mListener.onFinish(mEncodingTime);
+            //mListener.onFinish(mEncodingTime);
         }
         CCLog.d(TAG, "output frameCount = " + mOutputFrameCount);
     }
 
-    private void encodeVideoFromBuffer() {
-        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+    public void encode_stop () {
+        mEncoderHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mStarted = false;
+                    mTRSListener.startNextResolution();
+                    CCLog.d(TAG, "TRS RL Encoder stop mStarted " + mStarted + " " + this);
+                } catch (Exception e) {
+                    if (mListener != null) {
+                        mListener.onError("TRS RL Encoder Exception");
+                    }
+                    e.printStackTrace();
+                    CCLog.e(TAG, e.getMessage());
+                }
+            }
+        });
+    }
+
+
+
+    public void encodeFromMain (){
         CCLog.d(TAG, "Encoding START");
         mInputDone = false;
         mEndOfStream = false;
-        while (!mEndOfStream) {
-            try {
-                //CCLog.d(TAG, "Enter occurred in Encoder");
-                CCLog.d(TAG, "TRS: encoding start bitrate: " + mBitRate);
-                putCodecInputBuffer();
-                getCodecOutputBuffer(bufferInfo);
-                CCLog.d(TAG, "TRS: encoding end");
-            }
-            catch (Exception e){
-                //CCLog.d(TAG, "Error occurred in Encoder");
-            }
+        try{
+            mEncoderHandler.post(new CCVideoStreamEncoder.runEncodeThread(mBufferInfo));
+            CCLog.d(TAG, "TRS: encoding mStarted" + mStarted + " " + this);
         }
-        CCLog.d(TAG, "Encoding END mOutputFrameCount : " + mOutputFrameCount + ", bufferInfo.flags : " + bufferInfo.flags);
+        catch (Exception e){
+
+        }
         return;
     }
 
+
+    public class runEncodeThread implements Runnable {
+        MediaCodec.BufferInfo bufferInfo;
+
+        runEncodeThread(MediaCodec.BufferInfo bufferInfo){this.bufferInfo = bufferInfo;}
+
+        public void run() {
+            try {
+                long start = System.currentTimeMillis();
+                CCLog.d(TAG, "TRS: encoding start" + mStarted);
+                putCodecInputBuffer();
+                getCodecOutputBuffer(bufferInfo);
+                long end = System.currentTimeMillis();
+                CCLog.d(TAG, "TRS: encoding end, " + (end - start));
+                //Thread.sleep(10);
+            } catch (Exception e) {
+                CCLog.d(TAG, "TRS: encoding error");
+            }
+        }
+    }
+
     public void putEncodingBuffer(CCImage image) {
-        CCLog.d(TAG, "Queue Size : " + mEncodingQueue.size());
+        CCLog.d(TAG, "TRS: start encoding1 " + mEncodingQueue.size());
         try {
             if (!mInputDone && mEncodingQueue.size() < 20) {
+                CCLog.d(TAG, "TRS: start encoding2 " + mEncodingQueue.size());
                 mEncodingQueue.put(image);
             }
         } catch (Exception e) {
@@ -271,9 +349,7 @@ public class CCVideoStreamEncoder {
             if (mInputDone) {
                 return;
             }
-
             if (mKeyFramePerSec == 0 || mFirstFrame) {
-                CCLog.d(TAG, "Request Sync Input");
                 Bundle bundle = new Bundle();
                 bundle.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
                 mMediaCodec.setParameters(bundle);
@@ -287,7 +363,7 @@ public class CCVideoStreamEncoder {
 //        if (inputBufIndex >= 0 && mCCImageList.size() > 0) {
             CCImage ccImage = null;
             try {
-                CCLog.d(TAG, "take");
+                CCLog.d(TAG, "TRS: start encoding3");
                 ccImage = mEncodingQueue.take();
             } catch (Exception e) {
                 CCLog.e(TAG, "Error : " + e.getMessage());
@@ -360,7 +436,6 @@ public class CCVideoStreamEncoder {
                     mEncodingTime += (end - start);
                 }
             }
-
     }
 
     private void getCodecOutputBuffer(MediaCodec.BufferInfo bufferInfo) {
@@ -369,17 +444,18 @@ public class CCVideoStreamEncoder {
         }
         long start = SystemClock.uptimeMillis();
 
-        CCLog.d(TAG, "resolution debugger: " + mMediaFormat.getInteger(MediaFormat.KEY_WIDTH) +" " + mMediaCodec.getOutputFormat());
-
         int outputBufferId = mMediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+        CCLog.d(TAG, "TRS: callback for upload: " + mMediaFormat.getInteger(MediaFormat.KEY_WIDTH) +" " + mMediaCodec.getOutputFormat() +" " + outputBufferId);
+        CCLog.d(TAG, "Output buffer id: "+ outputBufferId + " Buffer info " + bufferInfo + " " + TIMEOUT_USEC + " " + mMediaFormat.getInteger(MediaFormat.KEY_WIDTH));
         if (outputBufferId >= 0) {
+            CCLog.d(TAG, "Output buffer id1");
             CCLog.i(TAG, "outputBuffer = " + outputBufferId);
 
             ByteBuffer outputBuffer = mMediaCodec.getOutputBuffer(outputBufferId);
             if (mListener != null) {
                 mListener.onDrainOutputBuffer(bufferInfo, outputBuffer);
             }
-            if (mTRSListener != null){
+            else if (mTRSListener != null){
                 CCLog.d(TAG, "TRS: callback for upload");
                 mTRSListener.onEncodedBuffer(bufferInfo, outputBuffer);
             }
@@ -393,6 +469,9 @@ public class CCVideoStreamEncoder {
             CCLog.i(TAG, "onOutputFormatChanged = " + mOutputFormat.toString());
            // mListener.onOutputFormatChanged(mMediaCodec.getOutputFormat());
         }
+
+        CCLog.d(TAG, "Output buffer id2");
+        mTRSListener.onRestart();
 
         long end = SystemClock.uptimeMillis();
         mEncodingTime += (end - start);
