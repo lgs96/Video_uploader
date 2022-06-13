@@ -25,6 +25,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import kr.ac.snu.nxc.cloudcamera.thermalreader.Config;
+import kr.ac.snu.nxc.cloudcamera.util.CCImage;
 import kr.ac.snu.nxc.cloudcamera.util.CCLog;
 
 import java.io.BufferedReader;
@@ -38,6 +39,7 @@ import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 
 public class ThermalReader {
@@ -126,34 +128,6 @@ public class ThermalReader {
         cpu_types.add("Big1");
         cpu_types.add("Big2");
 
-        big1_path = set_cpu_path + Integer.toString(Config.cpu_index.get(1)) + "/cpufreq";
-        big2_path = set_cpu_path + Integer.toString(Config.cpu_index.get(2)) + "/cpufreq";
-
-        String avail1 = big1_path + "/scaling_available_frequencies";
-        String avail2 = big2_path + "/scaling_available_frequencies";
-
-        //Process p = Runtime.getRuntime().exec("su");
-        //DataOutputStream os = new DataOutputStream(p.getOutputStream());
-        CCLog.d (TAG, "CPU clock 1");
-        ArrayList<String> avail_freq1 = ReadFileSplit(avail1);
-        ArrayList<String> avail_freq2 = ReadFileSplit(avail2);
-
-        avail_cpu_freq1 = new int [avail_freq1.size()];
-        avail_cpu_freq2 = new int [avail_freq2.size()];
-
-        CCLog.d (TAG, "CPU clock 2 " + avail_freq1.size());
-        for (int i = 0; i < avail_freq1.size(); i++){
-            avail_cpu_freq1[i] = Integer.parseInt(avail_freq1.get(i));
-        }
-        for (int i = 0; i < avail_freq2.size(); i++){
-            avail_cpu_freq2[i] = Integer.parseInt(avail_freq2.get(i));
-        }
-
-        CCLog.d (TAG, "CPU clock 3");
-        mActionindex1 = (int)(avail_freq1.size()/2);
-        mActionindex2 = (int)(avail_freq2.size()/2);
-        setCPUclock(0);
-
         temp_values = new ArrayList[Config.temp_index.size()];
         cooling_values = new ArrayList[Config.cooling_index.size()];
         cpu_values = new ArrayList[Config.cpu_index.size()];
@@ -161,6 +135,9 @@ public class ThermalReader {
         temp_state = new int[Config.temp_index.size()];
         cool_state = new int[Config.cooling_index.size()];
         clock_state = new int[Config.cpu_index.size()];
+
+        // Get CPU info for action
+        getCPUinfo ();
 
         // Get 2-d list
         for (int i = 0; i < Config.temp_index.size(); i++){
@@ -369,6 +346,73 @@ public class ThermalReader {
         }
     }
 
+
+
+    public int cpu_num = 8;
+    LinkedList<int []> avail_cpu_freq_set = new LinkedList<int []>();
+    int [] action_set = new int[cpu_num];
+
+    public void getCPUinfo () {
+        for (int i = 0; i < cpu_num; i++){
+            String big_path = set_cpu_path + Integer.toString(i) + "/cpufreq";
+            String avail = big_path + "/scaling_available_frequencies";
+            ArrayList<String> avail_freq = ReadFileSplit(avail);
+
+            int [] avail_cpu_freq = new int [avail_freq.size()];
+
+            for (int j = 0; j < avail_freq.size(); j++){
+                avail_cpu_freq[j] = Integer.parseInt(avail_freq.get(j));
+                CCLog.d(TAG, "Exception5 " + i + " " +  avail_freq.get(j));
+            }
+
+            avail_cpu_freq_set.add(avail_cpu_freq);
+            action_set[i] = (int)(avail_freq.size()/2);
+        }
+    }
+
+    public void setCPUclock (int cpu_index){
+
+        if (cpu_index ==0 ){
+            return;
+        }
+
+        Process p;
+        DataOutputStream os;
+        try {
+            p = Runtime.getRuntime().exec("su");
+            os = new DataOutputStream(p.getOutputStream());
+            String gov_path = "";
+            String max_freq_path = "";
+            String min_freq_path = "";
+            int current_cpu_clock = 0;
+            for (int i = 0; i < avail_cpu_freq_set.size(); i++) {
+                gov_path = set_cpu_path + Integer.toString(i) + "/cpufreq/scaling_governor";
+                max_freq_path = set_cpu_path + Integer.toString(i) + "/cpufreq/scaling_max_freq";
+                min_freq_path = set_cpu_path + Integer.toString(i) + "/cpufreq/scaling_min_freq";
+
+                action_set[i] += cpu_index;
+                action_set[i] = Math.max(action_set[i] , 0);
+                action_set[i] = Math.min(action_set[i] , avail_cpu_freq_set.get(i).length - 1);
+                current_cpu_clock = avail_cpu_freq_set.get(i)[action_set[i]];
+
+                os.writeBytes("echo userspace > " + gov_path + "\n");
+                os.writeBytes("echo " + current_cpu_clock + " > " + max_freq_path + "\n");
+                os.writeBytes("echo " + current_cpu_clock + " > " + min_freq_path + "\n");
+                CCLog.d("TAG", "command " + "echo " + current_cpu_clock + " > " + min_freq_path + "\n");
+            }
+            os.writeBytes("exit\n");
+            os.flush();
+            os.close();
+
+            CCLog.d(TAG, "Set CPU Path: " + gov_path + " " + max_freq_path + " " + min_freq_path);
+            CCLog.d(TAG, "Set CPU clock done " + " specified CPU index: "+ current_cpu_clock);
+        }
+        catch (Exception e){
+            CCLog.d(TAG, "Exception");
+        }
+    }
+
+    /*
     public void setCPUclock (int cpu_index) {
         if (cpu_index ==0 ){
             return;
@@ -410,4 +454,5 @@ public class ThermalReader {
             CCLog.d(TAG, "Set CPU clock exception");
         }
     }
+     */
 }

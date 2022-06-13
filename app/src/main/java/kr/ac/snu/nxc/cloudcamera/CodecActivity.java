@@ -613,9 +613,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 // Preprocessing
                 try {
                     resolution_set.add(m2kList);
-                    //resolution_set.add(m2_5kList);
+                    resolution_set.add(m2_5kList);
                     resolution_set.add(m3kList);
-                    //resolution_set.add(m3_5kList);
+                    resolution_set.add(m3_5kList);
                     resolution_set.add(m4kList);
                     preprocess_jpeg();
                 } catch (IOException e) {
@@ -627,7 +627,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 for (int i = 0; i < set_size; i++) {
                     //SET Video Config
-                    float bpp = 0.01f;
+                    float bpp = 0.18f;
                     if (mEditBitrate.getText().toString().trim().length() > 0){
                         bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
                     }
@@ -1104,9 +1104,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mCCVideoReader.close();
                 mDecoderFinish = true;
                 CCLog.d(TAG, "closeDecoder end");
-                if (mIsVideoEncoding) {
-                    closeEncoder();
-                }
+                //if (mIsVideoEncoding) {
+                //closeEncoder();
+                //}
             }
         });
     }
@@ -1215,12 +1215,38 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         //thermalReader.setCPUclock(0);
                         RLagent.transmit_state((int)encode_fps, (int) network_fps, thermalReader.temp_state, thermalReader.cool_state, thermalReader.clock_state, mResolutionIndex, mBitRate);
 
+                        // Episode end..
+                        if (thermalReader.temp_state[2] >= 53000){
+                            pauseInjectThread();
+                        }
                         Thread.sleep(2000);
                     }
                     catch (Exception e){
 
                     }
                 }
+            }
+        });
+    }
+
+    public void pauseInjectThread(){
+        mInputHandler.post(new Runnable() {
+            @Override
+            public void run() {
+              try{
+                  closeEnDecoder();
+                  while(true) {
+                      Thread.sleep(30000);
+                      // restart
+                      if (thermalReader.cool_state[0] == 0) {
+                          mInferenceManager.api.reset_episode();
+                          break;
+                      }
+                  }
+              }
+              catch(Exception e){
+
+              }
             }
         });
     }
@@ -1248,7 +1274,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     //set action now
                     mResolutionIndex = mNextResolution;
                     encoder_set.get(mResolutionIndex).changeBitRate(mBitRateIndex*2);
-                    thermalReader.setCPUclock(mClockIndex);
+                    thermalReader.setCPUclock(-1);
 
                     CCLog.d (TAG, "TRS RL Encoder resolution: " + mResolutionIndex + " " + res + " bitrate: " + bitrate +  " big clock: " + big_clock);
                 }

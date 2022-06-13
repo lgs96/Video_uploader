@@ -17,11 +17,19 @@ import org.json.JSONException;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import kr.ac.snu.nxc.cloudcamera.util.CCImage;
 import kr.ac.snu.nxc.cloudcamera.util.CCLog;
@@ -56,6 +64,7 @@ public class ApiClient {
     public UploadListener mListner;
     public int call_queue_size;
     public final int MAX_QUEUE_SIZE = 50;
+    public int reset_trial = 0;
 
     HandlerThread mApiThread = null;
     Handler mApiHandler = null;
@@ -84,9 +93,9 @@ public class ApiClient {
         public Retrofit getRetrofitInstance () {
             OkHttpClient client = new OkHttpClient.Builder()
                     //.addNetworkInterceptor(commonNetworkInterceptor)
-                    .writeTimeout(5, TimeUnit.SECONDS)
-                    .connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS).build();
+                    .writeTimeout(10, TimeUnit.SECONDS)
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS).build();
             CCLog.i(TAG, "Retrofit");
             if (retrofit == null) {
                 Gson gson = new GsonBuilder()
@@ -94,6 +103,7 @@ public class ApiClient {
                         .create();
                 retrofit = new retrofit2.Retrofit.Builder()
                         .baseUrl(BASE_URL_API).client(client)
+                        .client(getUnsafeOkHttpClient().build())
                         .callbackExecutor(Executors.newSingleThreadExecutor())
                         .addConverterFactory(GsonConverterFactory.create(gson))
                         .build();
@@ -104,29 +114,36 @@ public class ApiClient {
     }
 
     public interface ResetService {
-        @GET("reset")
+        @GET("/reset")
         Call <ResponseBody> getName(@Query("name") int name);
     }
 
     public void reset_episode (){
-                ResetService service = r1.getRetrofitInstance().create(ResetService.class);
+            if (reset_trial >= 5){
+                reset_trial = 0;
+                return;
+            }
 
-                Call<ResponseBody> call = service.getName(1);
-                call.enqueue(new Callback<ResponseBody>() {
-                    @Override
-                    public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                        if (response.isSuccessful()) {
-                            CCLog.d(TAG, "Get Success: " + response.message());
-                        } else {
-                            CCLog.d(TAG, "Get Error: " + response.message());
-                        }
-                    }
+            ResetService service = r1.getRetrofitInstance().create(ResetService.class);
 
-                    @Override
-                    public void onFailure(Call<ResponseBody> call, Throwable t) {
-                        CCLog.d(TAG, "Get Failure " + BASE_URL_API + " " + call);
+            Call<ResponseBody> call = service.getName(1);
+            call.enqueue(new Callback<ResponseBody>() {
+                @Override
+                public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                    if (response.isSuccessful()) {
+                        CCLog.d(TAG, "Get Success: " + response.message());
+                    } else {
+                        CCLog.d(TAG, "Get Error: " + response.message());
                     }
-                });
+                }
+
+                @Override
+                public void onFailure(Call<ResponseBody> call, Throwable t) {
+                    CCLog.d(TAG, "Get Failure " + BASE_URL_API + " " + t);
+                    reset_trial += 1;
+                    reset_episode();
+                }
+            });
         }
 
     public interface UploadReceiptService {
@@ -257,6 +274,43 @@ public class ApiClient {
         public void onResponse (String response);
     }
 
+    public static OkHttpClient.Builder getUnsafeOkHttpClient() {
+        try {
+            final TrustManager[] trustAllCerts = new TrustManager[] {
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
 
+                        @Override
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
+
+                        @Override
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                            return new java.security.cert.X509Certificate[]{};
+                        }
+                    }
+            };
+
+            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+
+            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+            OkHttpClient.Builder builder = new OkHttpClient.Builder();
+            builder.sslSocketFactory(sslSocketFactory, (X509TrustManager)trustAllCerts[0]);
+            builder.hostnameVerifier(new HostnameVerifier() {
+                @Override
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            });
+            return builder;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
 
 }

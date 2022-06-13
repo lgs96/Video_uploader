@@ -134,7 +134,6 @@ public class CloudInferenceManager {
 
         api = new ApiClient(HOST, PORT);
         api.setListner(mUploadListener);
-        api.reset_episode ();
 
         HandlerThread ht = new HandlerThread("CloudShotSocket");
         ht.start();
@@ -177,7 +176,7 @@ public class CloudInferenceManager {
 //                }
 //            }
 //        }).start();
-
+        api.reset_episode ();
     }
 
     public void setPerfTextView(TextView tv, CodecActivity c){
