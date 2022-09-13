@@ -716,7 +716,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 <<<<<<< HEAD
 <<<<<<< HEAD
 
-                //runUpload ();
+                runUpload ();
             }
 
             public void closeWriter (){
