@@ -718,6 +718,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 runUpload ();
 <<<<<<< HEAD
+<<<<<<< HEAD
             }
 
             public void closeWriter (){
@@ -727,6 +728,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 >>>>>>> parent of 31d848c (working ver0.01)
 =======
 >>>>>>> parent of 31d848c (working ver0.01)
+=======
+>>>>>>> parent of 244f3b2 (Ver0.1)
 =======
 >>>>>>> parent of 244f3b2 (Ver0.1)
             }
