@@ -246,7 +246,7 @@ public class CloudInferenceManager {
     }
 
     public void inferenceImage(int frameIndex, byte[] buffer, int encodedSize) {
-        CCLog.d(TAG, "inferenceImage : " + frameIndex);
+        CCLog.d(TAG, "Goodsol inferenceImage : " + frameIndex +" " +buffer.length);
 //        mEncodingHandler.post(new EncodingFrameRunnable(frameIndex, ccImage));
         api.uploadFile(buffer);
        // mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));

@@ -87,6 +87,7 @@ public final class CCVideoStreamWriter {
 
             mFrameCount = mCCImageList.size();
 
+
             CCLog.d(TAG, "FPS/Bitrate/BPP: "+FPS +" "+ " " +getBitrate()+ " "+ mBitPerPixel);
 
             mEncoder = new CCVideoStreamEncoder();
@@ -97,7 +98,7 @@ public final class CCVideoStreamWriter {
             mEncoder.setListener(mListener);
             mEncoder.setColorFormat(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
             mEncoder.setBitrate(getBitrate());
-            mEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
+            mEncoder.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
             mEncoder.start();
         }
     }
@@ -117,8 +118,7 @@ public final class CCVideoStreamWriter {
 
     public void setBitRate (float bitrate) {
         mBitPerPixel = bitrate/(FPS * mWidth * mHeight);
-        //mBitPerPixel = 0.18f;
-        CCLog.d(TAG, "Bitrate: "+ bitrate+ " Bitperpixel: "+ mBitPerPixel + " " + FPS + " "+ mWidth + " " + mHeight);
+        CCLog.d(TAG, "Bitrate: "+ bitrate+ " Bitperpixel: "+ mBitPerPixel);
     }
 
 
@@ -212,24 +212,18 @@ public final class CCVideoStreamWriter {
                     MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                     info.set(bufferInfo.offset, bufferInfo.size, bufferInfo.presentationTimeUs, bufferInfo.flags);
 
-                    try {
-                        // This code saves file, not required for streaming.. (Goodsol to be fixed)
-                        //mMediaMuxer.writeSampleData(mTrackIndexOfVideo, byteBuffer, info);
-                        mOutputIndex++;
+                    mMediaMuxer.writeSampleData(mTrackIndexOfVideo, byteBuffer, info);
+                    mOutputIndex++;
 
-                        byteBuffer.clear();
-                        byteBuffer.position(bufferInfo.offset);
-                        byteBuffer.limit(bufferInfo.offset + bufferInfo.size);
-                        ByteBuffer streamBuffer = ByteBuffer.allocate(bufferInfo.size);
-                        streamBuffer.put(byteBuffer);
+                    byteBuffer.clear();
+                    byteBuffer.position(bufferInfo.offset);
+                    byteBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                    ByteBuffer streamBuffer = ByteBuffer.allocate(bufferInfo.size);
+                    streamBuffer.put(byteBuffer);
 //                    byte[] socketWriteBuffer = mFrameBuffer.array();
 
-                        mWriterListener.onEncodedBuffer(streamBuffer, bufferInfo.size);
-                        //socket write [0] ~ [bufferInfo.size]
-                    }
-                    catch (Exception e){
-                        CCLog.d(TAG, "Error during onDrainOutputBuffer: " + e);
-                    }
+                    mWriterListener.onEncodedBuffer(streamBuffer, bufferInfo.size);
+                    //socket write [0] ~ [bufferInfo.size]
 
                 }
             }

@@ -63,7 +63,6 @@ public class CCVideoDecoder {
     }
 
     public void start(final String mime) {
-        mOutputFrameCount = 0;
         synchronized (mLock) {
             HandlerThread handlerThread = new HandlerThread("CCVideoDecoder", Process.THREAD_PRIORITY_FOREGROUND);
             handlerThread.start();
@@ -178,8 +177,6 @@ public class CCVideoDecoder {
             if (sampleSize < 0) {
                 CCLog.d(TAG, "queueInputBuffer EOS : " + inputBufferId);
                 mMediaCodec.queueInputBuffer(inputBufferId, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                //long presentationTimeUs = mMediaExtractor.getSampleTime();
-                //mMediaCodec.queueInputBuffer(inputBufferId, 0, sampleSize, presentationTimeUs, 0);
                 mInputDone = true;
             } else {
                 CCLog.d(TAG, "queueInputBuffer Data : " + inputBufferId + " End of stream: " + mEndOfStream);
@@ -208,7 +205,6 @@ public class CCVideoDecoder {
 
         if (outputBufferId >= 0) {
             if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                CCLog.d(TAG, "End of stream");
                 mEndOfStream = true;
             }
 

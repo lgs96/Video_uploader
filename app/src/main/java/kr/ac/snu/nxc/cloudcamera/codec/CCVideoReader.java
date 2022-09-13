@@ -82,7 +82,6 @@ public class CCVideoReader {
                 CCLog.d(TAG, "VideoReader initial operation start");
                 mExtractor = new MediaExtractor();
                 mExtractor.setDataSource(mSavedFilePath);
-
                 mTrackIndexOfVideo = selectTrack(mExtractor);
                 if (mTrackIndexOfVideo < 0) {
                     CCLog.e(TAG, "Error no video track");
@@ -95,6 +94,7 @@ public class CCVideoReader {
                 MediaFormat mediaFormat = mExtractor.getTrackFormat(mTrackIndexOfVideo);
                 String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
 
+<<<<<<< HEAD
                 CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
                 mDecoder.setListener(mListener);
@@ -103,6 +103,11 @@ public class CCVideoReader {
                 CCLog.d(TAG, "VideoReader initial operation end");
 
                 CCLog.e(TAG, "Error no video track");
+=======
+                mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
+                mDecoder.setListener(mListener);
+                mDecoder.start(mime);
+>>>>>>> parent of 31d848c (working ver0.01)
             } catch (Exception e) {
                 CCLog.e(TAG, "CCVideoReader Exception");
                 if (mReaderListener != null) {
