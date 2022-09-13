@@ -95,6 +95,7 @@ public class CCVideoReader {
                 String mime = mediaFormat.getString(MediaFormat.KEY_MIME);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                 CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
                 mDecoder.setListener(mListener);
@@ -103,6 +104,11 @@ public class CCVideoReader {
                 CCLog.d(TAG, "VideoReader initial operation end");
 
                 CCLog.e(TAG, "Error no video track");
+=======
+                mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
+                mDecoder.setListener(mListener);
+                mDecoder.start(mime);
+>>>>>>> parent of 31d848c (working ver0.01)
 =======
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
                 mDecoder.setListener(mListener);

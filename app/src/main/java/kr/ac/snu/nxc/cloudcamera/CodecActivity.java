@@ -481,6 +481,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 //mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 
                 thermalReader = new ThermalReader();
@@ -502,6 +503,13 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "Save string is " + thermalReader.save_string);
 
                 CCLog.d(TAG, "Initial operation end!");
+=======
+                //SET Video Config
+                    mCCVideoWriter.setBitPerPixel(0.18f);
+                    mEncoderFinish = false;
+                    mCCVideoWriter.start();
+
+>>>>>>> parent of 31d848c (working ver0.01)
 =======
                 //SET Video Config
                     mCCVideoWriter.setBitPerPixel(0.18f);
@@ -618,6 +626,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     public void runUpload (){
         CCLog.d(TAG, "Run upload called");
 
@@ -677,6 +686,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
 =======
 >>>>>>> parent of 31d848c (working ver0.01)
+=======
+>>>>>>> parent of 31d848c (working ver0.01)
     public class VideoDecoder implements Runnable {
         CCVideoReader.CCVideoReaderListener mReaderListener = new CCVideoReader.CCVideoReaderListener() {
             @Override
@@ -686,6 +697,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
                 closeDecoder();
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+
+//                mCodecHandler.post(new VideoDecoder());
+>>>>>>> parent of 31d848c (working ver0.01)
 =======
 
 //                mCodecHandler.post(new VideoDecoder());
@@ -698,6 +714,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 mImageUpdateHandler.sendEmptyMessage(MSG_UPDATE_STATUS);
                 closeDecoder();
 <<<<<<< HEAD
+<<<<<<< HEAD
 
                 //runUpload ();
             }
@@ -705,6 +722,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             public void closeWriter (){
                 CCLog.d(TAG, "Resolution set: close writer from codecactivity");
                 closeEncoder();
+=======
+>>>>>>> parent of 31d848c (working ver0.01)
 =======
 >>>>>>> parent of 31d848c (working ver0.01)
             }
