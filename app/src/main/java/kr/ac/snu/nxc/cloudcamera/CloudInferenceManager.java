@@ -40,7 +40,7 @@ public class CloudInferenceManager {
     private final static String TAG = "CloudShotManager";
     private static final String AROHA_TAG = "AROHA";
 
-    public static final String HOST = "seoul.overlinkapp.org";
+    public static final String HOST = "endure.overlinkapp.org";
 //    private static final String HOST = "192.168.1.5";
     public static final int PORT = 3030;
     private static final int PORT2 = 8486;
@@ -248,7 +248,12 @@ public class CloudInferenceManager {
     public void inferenceImage(int frameIndex, byte[] buffer, int encodedSize) {
         CCLog.d(TAG, "inferenceImage : " + frameIndex);
 //        mEncodingHandler.post(new EncodingFrameRunnable(frameIndex, ccImage));
-        api.uploadFile(buffer);
+        try {
+            api.uploadFile(buffer);
+        }
+        catch (Exception e) {
+
+        }
        // mSocketHandler.post(new TransmitFrameRunnable(buffer, encodedSize, frameIndex));
     }
 

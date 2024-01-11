@@ -32,6 +32,7 @@ import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -124,7 +125,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     TextView mTextViewThermal = null;
     TextView mTextViewCpu = null;
     EditText mEditBitrate = null;
-
+    EditText mEditFps = null;
+    EditText mEditBatching = null;
     ImageView mImageViewDecodeFrame;
     ImageView mImageViewInferenceFrame;
 
@@ -159,7 +161,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     // To save fps/throughput in csv file
     boolean is_save = true;
-    long encode_last_milli= System.currentTimeMillis();
+    long encode_last_milli = System.currentTimeMillis();
     long decode_last_milli = System.currentTimeMillis();
 
     int encode_frame = 0;
@@ -173,6 +175,18 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     public float network_fps = 0f;
     public float network_th = 0f;
+
+    long decode_start = 0;
+    long decode_end = 0;
+
+    int param_fps = 30;
+
+    int param_batching = 30;
+
+    private int currentBatching = 0;
+    private int allowedBatching = 5; // Set this to your desired batch count
+    private List<byte[]> bufferedData = new ArrayList<>();
+    private List<Integer> bufferedSizes = new ArrayList<>();
 
     // Thermal reader
     ThermalReader thermalReader;
@@ -219,8 +233,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     if (mDebugShowVideo) {
                         mImageViewDecodeFrame.setImageBitmap(mDecodeBitmapQueue.take());
                     }
-
-//                    CCLog.d(AROHA_TAG, "Frame Index [" + frameIndex + "]" + " mJpgQuality" + mJpgQuality + " mDownScaleRatio " + mDownScaleRatio);
 
                     CCImage decodeFrame = mDecodeFrameQueue.take();
 //                    EncodingQueue.put(Pair.create(frameIndex, decodeFrame));
@@ -290,6 +302,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     HandlerThread mSaveThread = null;
     Handler mSaveHandler = null;
 
+    HandlerThread mInputThread = null;
+    Handler mInputHandler = null;
+
     CCVideoStreamWriter mCCVideoWriter;
     CCVideoStreamWriter.CCVideoWriterListener mWriterListener = new CCVideoStreamWriter.CCVideoWriterListener() {
         @Override
@@ -312,42 +327,34 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             if (decodeImage != null) {
                 mCCVideoReader.returnQueueImage(decodeImage);
             }
-            mInferenceManager.inferenceImage(mEncodingFrameIndex, buffer.array(), size);
 
-            mEncodingFrameIndex++;
-            encode_frame += 1;
-            encode_byte += (float)size*8/(1024*1024);
-
-/*
-            long current_milli = System.currentTimeMillis();
-            CCLog.d(TAG, "Encode frame byte: " + encode_frame + " " + encode_byte + " " + size);
-            long time_gap = (current_milli - encode_last_milli);
-            if (time_gap > 1000) {
-                encode_last_milli = current_milli;
-
-                float fps_f = 0f;
-                float th_f = 0f;
-
-                try {
-                    fps_f = encode_frame / ((float) time_gap / 1000f);
-                    th_f = encode_byte / ((float) time_gap / 1000f);
-                }
-                catch (Exception e){
-
+            currentBatching++;
+            if (currentBatching < allowedBatching) {
+                // Buffer the data
+                byte[] data = new byte[buffer.remaining()];
+                buffer.get(data);
+                bufferedData.add(data);
+                bufferedSizes.add(size);
+            } else {
+                // Process all buffered data in sequence, then process current data
+                for (int i = 0; i < bufferedData.size(); i++) {
+                    mInferenceManager.inferenceImage(mEncodingFrameIndex, bufferedData.get(i), bufferedSizes.get(i));
+                    mEncodingFrameIndex++;
+                    encode_frame++;
+                    encode_byte += (float)bufferedSizes.get(i) * 8 / (1024 * 1024);
                 }
 
-                CCLog.d(TAG, "CCSave save " + fps_f + " "+th_f);
+                // Clear the buffers
+                bufferedData.clear();
+                bufferedSizes.clear();
+                currentBatching = 0;
 
-                encode_fps = (Math.round(fps_f*100f)/100.0f);
-                String fps = Float.toString(encode_fps);
-                String throughput = Float.toString(Math.round(th_f*100f)/100.0f);
-                String content = fps + "," + throughput;
-                mSaveHandler.post(new CCSave(is_save, content, "encode"));
-                encode_frame = 0;
-                encode_byte = 0;
+                // Process the current buffer
+                mInferenceManager.inferenceImage(mEncodingFrameIndex, buffer.array(), size);
+                mEncodingFrameIndex++;
+                encode_frame++;
+                encode_byte += (float)size * 8 / (1024 * 1024);
             }
- */
-
         }
     };
 
@@ -415,6 +422,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mTextViewThermal = (TextView) findViewById(R.id.text_view_temp_status);
         mTextViewCpu = (TextView) findViewById(R.id.text_view_cpu_status);
         mEditBitrate= (EditText) findViewById(R.id.edit_bitrate);
+        mEditFps = (EditText) findViewById(R.id.edit_fps);
+        mEditBatching = (EditText) findViewById(R.id.edit_batching);
         mImageViewDecodeFrame = (ImageView) findViewById(R.id.image_view_decode_frame);
         mImageViewInferenceFrame = (ImageView) findViewById(R.id.image_view_inference_frame);
 
@@ -438,6 +447,10 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
         mSaveThread = new HandlerThread(("Save"));
         mSaveThread.start();
         mSaveHandler = new Handler(mSaveThread.getLooper());
+
+        mInputThread = new HandlerThread(("Input"));
+        mInputThread.start();
+        mInputHandler = new Handler(mInputThread.getLooper());
 
         mButtonJpgInference.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -481,9 +494,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
 
                 thermalReader = new ThermalReader();
-                thermalReader.readThermal();
+                //thermalReader.readThermal();
 
-                //SET Video Config
+                //SET video bitrate
                 float bpp = 0.18f;
                 if (mEditBitrate.getText().toString().trim().length() > 0){
                     bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
@@ -495,6 +508,23 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                     mEncoderFinish = false;
                     mCCVideoWriter.start();
                 }
+
+                // SET video fps
+                if (mEditFps.getText().toString().trim().length() > 0){
+                    param_fps = Integer.parseInt(mEditFps.getText().toString());
+                }
+                else{
+                    param_fps = 30;
+                }
+
+                // SET batching
+                if (mEditBatching.getText().toString().trim().length() > 0){
+                    allowedBatching = Integer.parseInt(mEditBatching.getText().toString());
+                }
+                else{
+                    allowedBatching = 1;
+                }
+
                 thermalReader.save_string = mWidth + "_"+ bpp;
                 CCLog.d(TAG, "Save string is " + thermalReader.save_string);
 
@@ -692,9 +722,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 CCLog.d(TAG, "onDecodedImage : " + index);
 
                 try {
-                    //Thread.sleep(16);
-                    // Set video resolution here (Goodsol-RLagent)
+                    CCLog.i(TAG, "ENDURE start " + decode_start + " " + (decode_end - decode_start) + " " + decode_end);
+                    // Set video resolution here (Goodsol-
                     mDecodeFrameQueue.put(ccImage);
+
+                    decode_start = System.currentTimeMillis();
 
                     if (mDebugShowVideo) {
                         mDecodeBitmapQueue.put(ImageUtils.convertDownScaledBitmap(ccImage, DOWNSAMPLE_RATIO));
@@ -737,7 +769,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
         public void run() {
             mDecoderFinish = false;
-            mCCVideoReader = new CCVideoReader(mVideoPath, mReaderListener);
+            mCCVideoReader = new CCVideoReader(mVideoPath, mReaderListener, param_fps);
             mCCVideoReader.initQueue(mWidth, mHeight);
             mCCVideoReader.start();
         }

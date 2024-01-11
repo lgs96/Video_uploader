@@ -43,6 +43,8 @@ public class CCVideoDecoder {
 
     private long time_count = 0;
 
+    public long sleepTime = 0;
+
     public interface CCVideoDecoderListener {
         public void onError(String errorMsg);
 
@@ -157,7 +159,15 @@ public class CCVideoDecoder {
                     return;
                 }
                 putCodecInputBuffer();
+                long start = System.currentTimeMillis();
                 getCodecOutputBuffer(bufferInfo);
+                long end = System.currentTimeMillis() + 7;
+                CCLog.i("ENDURE", String.valueOf(end-start));
+                try {
+                    Thread.sleep(Math.max(sleepTime - (end-start),0));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
     }

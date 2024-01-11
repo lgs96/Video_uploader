@@ -31,6 +31,8 @@ public class CCVideoReader {
 
     private CCVideoReaderListener mReaderListener;
 
+    int sleepTime = 30;
+
     // RL
     public int init_width;
     public int init_height;
@@ -45,9 +47,10 @@ public class CCVideoReader {
         public void closeWriter ();
     }
 
-    public CCVideoReader(String path, CCVideoReaderListener listener) {
+    public CCVideoReader(String path, CCVideoReaderListener listener, int fps) {
         mSavedFilePath = path;
         mReaderListener = listener;
+        sleepTime = 1000/fps;
     }
 
     public void initQueue(int width, int height) {
@@ -97,6 +100,7 @@ public class CCVideoReader {
 
                 CCLog.d(TAG, "CCVideoReader Decoder start");
                 mDecoder = new CCVideoDecoder(mExtractor, mediaFormat);
+                mDecoder.sleepTime = sleepTime;
                 mDecoder.setListener(mListener);
                 mDecoder.start(mime);
                 CCLog.d(TAG, "CCVideoReader Decoder no error");
