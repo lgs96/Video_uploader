@@ -150,7 +150,7 @@ public final class CCVideoWriter {
 
     public int getBitrate() {
         int bitrate = (int)(mBitPerPixel * FPS * mWidth * mHeight);
-        CCLog.d(TAG, "BPP : " + mBitPerPixel + " bitrate : " + bitrate);
+        CCLog.d(TAG, "BPP : " + mBitPerPixel + " bitrate : " + bitrate/1e6);
 
         return bitrate;
     }

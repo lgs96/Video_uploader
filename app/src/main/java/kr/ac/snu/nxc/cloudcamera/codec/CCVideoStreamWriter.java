@@ -18,7 +18,7 @@ public final class CCVideoStreamWriter {
 
     private final Object mLock = new Object();
 
-    public static final int FPS = 30;
+    public int FPS = 60;
     protected static final int KEY_FRAME_PER_SEC = 1;
 
     CCVideoStreamEncoder mEncoder = null;
@@ -172,7 +172,7 @@ public final class CCVideoStreamWriter {
 
     public int getBitrate() {
         int bitrate = (int)(mBitPerPixel * FPS * mWidth * mHeight);
-        CCLog.d(TAG, "BPP : " + mBitPerPixel + " bitrate : " + bitrate);
+        CCLog.d(TAG, "BPP : " + mBitPerPixel + " bitrate : " + bitrate/1e6);
 
         return bitrate;
     }

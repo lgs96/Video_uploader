@@ -184,8 +184,8 @@ public class CCVideoStreamEncoder {
         mMediaFormat.setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval);
         mPrevTimeStamp = 0;//mCCImageList.get(0).mTimestamp;
 
-        CCLog.d(TAG, "Bitrate : " + mBitRate + "I Frame Interval : " + iFrameInterval
-                + " COLOR_STANDARD_BT709 - COLOR_RANGE_FULL");
+        CCLog.d(TAG, "Bitrate : " + mBitRate + "I Frame Interval : " + iFrameInterval + " FPS: " + mFPS +
+                 " COLOR_STANDARD_BT709 - COLOR_RANGE_FULL");
     }
 
     public void encode() {
@@ -231,8 +231,12 @@ public class CCVideoStreamEncoder {
         mInputDone = false;
         mEndOfStream = false;
         while (!mEndOfStream) {
+            long start = SystemClock.uptimeMillis();
             putCodecInputBuffer();
             getCodecOutputBuffer(bufferInfo);
+            long end = SystemClock.uptimeMillis();
+            CCLog.d(TAG, "Endure encoding" + (end -start));
+
         }
         CCLog.d(TAG, "Encoding END mOutputFrameCount : " + mOutputFrameCount + ", bufferInfo.flags : " + bufferInfo.flags);
         return;
@@ -340,6 +344,7 @@ public class CCVideoStreamEncoder {
 
                     end = SystemClock.uptimeMillis();
                     mEncodingTime += (end - start);
+                    CCLog.d(TAG, "Encoding time: " + (end-start));
                 }
             }
 

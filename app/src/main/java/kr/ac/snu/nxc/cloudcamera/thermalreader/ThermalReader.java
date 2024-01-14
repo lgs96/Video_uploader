@@ -136,8 +136,8 @@ public class ThermalReader {
 
     public class StartTrace implements Runnable {
         public void run() {
-            run_trace = true;
-            run_record = true;
+            run_trace = false;
+            run_record = false;
             int time_count = 0;
 
             while(true) {

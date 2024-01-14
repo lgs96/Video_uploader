@@ -154,7 +154,7 @@ public class CCVideoEncoder {
         mPrevTimeStamp = mCCImageList.get(0).mTimestamp;
 
         CCLog.d(TAG, "Bitrate : " + mBitRate + "I Frame Interval : " + iFrameInterval
-                + " COLOR_STANDARD_BT709 - COLOR_RANGE_FULL");
+                + " COLOR_STANDARD_BT709 - COLOR_RANGE_FULL, FPS " + mFPS);
     }
 
     public void encode() {

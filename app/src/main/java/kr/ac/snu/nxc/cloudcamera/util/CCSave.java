@@ -1,5 +1,6 @@
 package kr.ac.snu.nxc.cloudcamera.util;
 
+import android.content.Context;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -10,40 +11,23 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 public class CCSave implements Runnable {
 
     private String TAG = "CCSave";
-    private static final SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private static final String stat_time = f.format(new Date());
     private boolean is_save = false;
     private String my_content = "";
     private String my_fileName = "";
+    private Context context;
 
-    public CCSave (boolean is_save, String content, String fileName) {
+    public CCSave (Context context, boolean is_save, String content, String fileName) {
+        this.context = context;
         this.is_save = is_save;
         my_content = content;
         my_fileName = fileName;
 
         CCLog.d(TAG, "Constructor");
-        File dir = new File("/sdcard/CCSave/");
-        if(!dir.exists()){
-            try{
-                dir.mkdirs();
-            }
-            catch(Exception e){
-                e.printStackTrace();
-            }
-        }
-        dir = new File("/sdcard/CCSave/" + stat_time);
-        if(!dir.exists()){
-            try{
-                dir.mkdirs();
-            }
-            catch(Exception e){
-                e.printStackTrace();
-            }
-        }
     }
 
     public void run(){
@@ -58,7 +42,8 @@ public class CCSave implements Runnable {
         FileWriter fileWriter = null;
         boolean notFound = false;
 
-        File file = new File("/sdcard/CCSave/" + stat_time + "/" + fileName + ".csv");
+        String fullName = "video-" + my_fileName + ".csv";
+        File file = new File(context.getFilesDir(), fullName);
 
         if (!file.exists()) {
             CCLog.d(TAG, "Not found");
@@ -68,7 +53,7 @@ public class CCSave implements Runnable {
             fileWriter = new FileWriter(file, true);
             if (notFound) {
                 CCLog.d(TAG, "Not found");
-                fileWriter.append("fps,throughput,fps,throughput,fps,throughput" + "\n");
+                fileWriter.append("time, dec fps,dec tp,enc fps,enc tp,net fps,net tp" + "\n");
             }
             fileWriter.append(content + "\n");
         } catch (Exception e) {
@@ -76,9 +61,12 @@ public class CCSave implements Runnable {
             e.printStackTrace();
         } finally {
             try {
-                fileWriter.flush();
-                fileWriter.close();
-                CCLog.d(TAG, "File writing done" + "/sdcard/CCSave/" + stat_time + "/" + fileName + ".csv");
+                if (fileWriter != null) {
+                    assert fileWriter != null;
+                    fileWriter.flush();
+                    fileWriter.close();
+                    CCLog.d(TAG, "File writing done in " + context.getFilesDir() + " "+ fullName);
+                }
             } catch (IOException e) {
                 CCLog.e(TAG, "Error during flushing");
                 e.printStackTrace();

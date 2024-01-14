@@ -30,9 +30,12 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -145,6 +148,11 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
     float mDownScaleRatio = 0.5f;
 
+    String stat_time;
+
+    long reference_time = 0;
+    long current_time = 0;
+
     LinkedBlockingQueue<CCImage> mDecodeFrameQueue = new LinkedBlockingQueue<CCImage>(MAX_CODEC_QUEUE_SIZE);
     LinkedBlockingQueue<Bitmap> mDecodeBitmapQueue = new LinkedBlockingQueue<Bitmap>(MAX_CODEC_QUEUE_SIZE);
 
@@ -188,6 +196,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
     private List<byte[]> bufferedData = new ArrayList<>();
     private List<Integer> bufferedSizes = new ArrayList<>();
 
+    String recordFileName;
+
     // Thermal reader
     ThermalReader thermalReader;
 
@@ -226,7 +236,6 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
                 try {
 //                    int frameIndex = msg.arg1;
-
                     int frameIndex = total_frameCount;
                     CCLog.d(TAG, "Frame : " + frameIndex + " Queue remain : " + mDecodeFrameQueue.remainingCapacity());
 
@@ -259,7 +268,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         decode_fps = (Math.round(fps_f*100f)/100.0f);
                         String fps = Float.toString(Math.round(fps_f*100f)/100.0f);
                         String throughput = Float.toString(Math.round(th_f*100f)/100.0f);
-                        String content = fps + "," + throughput;
+
+                        current_time = System.currentTimeMillis() - reference_time;
+                        String content = current_time + "," + fps + "," + throughput;
 
                         float fps_e = encode_frame/((float)time_gap/1000f);
                         float th_e = encode_byte/((float)time_gap/1000f);
@@ -270,7 +281,8 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                         content += ","+ fps + "," + throughput +","+network_fps+","+network_th;
 
                         CCLog.d(TAG, "CCSave save " + content);
-                        //mSaveHandler.post(new CCSave (is_save, content, "record")) ;
+
+                        mSaveHandler.post(new CCSave (getApplicationContext(), is_save, content, stat_time)) ;
                         thermalReader.GetCodecString(content);
                         decode_frame = 0;
                         decode_byte = 0;
@@ -467,6 +479,9 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             @Override
             public void onClick(View v) {
 
+                stat_time = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault()).format(new Date());
+                reference_time = System.currentTimeMillis();
+
                 int numCodecs = MediaCodecList.getCodecCount();
                 for (int i = 0; i < numCodecs; i++) {
                     MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
@@ -492,29 +507,17 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 //mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
                 mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
 
-
                 thermalReader = new ThermalReader();
                 //thermalReader.readThermal();
 
-                //SET video bitrate
-                float bpp = 0.18f;
-                if (mEditBitrate.getText().toString().trim().length() > 0){
-                    bpp = Float.parseFloat(mEditBitrate.getText().toString())/100;
-                    mCCVideoWriter.setBitPerPixel(bpp);
-                    mCCVideoWriter.start();
-                }
-                else{
-                    mCCVideoWriter.setBitPerPixel(bpp);
-                    mEncoderFinish = false;
-                    mCCVideoWriter.start();
-                }
-
-                // SET video fps
+                //SET video config
                 if (mEditFps.getText().toString().trim().length() > 0){
                     param_fps = Integer.parseInt(mEditFps.getText().toString());
+                    mCCVideoWriter.FPS = param_fps;
                 }
                 else{
                     param_fps = 30;
+                    mCCVideoWriter.FPS = param_fps;
                 }
 
                 // SET batching
@@ -523,6 +526,22 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
                 }
                 else{
                     allowedBatching = 1;
+                }
+
+                float bpp = 0.18f;
+                if (mEditBitrate.getText().toString().trim().length() > 0){
+                    float bitrate = Float.parseFloat(mEditBitrate.getText().toString());
+                    bitrate = bitrate*1e6f;
+                    CCLog.d(TAG, "BPP goodsol");
+                    mCCVideoWriter.setBitRate(bitrate);
+                    mEncoderFinish = false;
+                    mCCVideoWriter.start();
+                }
+                else{
+                    CCLog.i("BPP Goodsol1", String.valueOf(bpp));
+                    mCCVideoWriter.setBitPerPixel(bpp);
+                    mEncoderFinish = false;
+                    mCCVideoWriter.start();
                 }
 
                 thermalReader.save_string = mWidth + "_"+ bpp;
@@ -650,13 +669,24 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
 
         String tempVideoPath = TEMP_VIDEO_PATH + System.currentTimeMillis() + ".mp4";
         mCCVideoWriter = new CCVideoStreamWriter(mWidth, mHeight, tempVideoPath, mWriterListener);
-
         //SET Video Config
+
+
+        if (mEditFps.getText().toString().trim().length() > 0){
+            param_fps = Integer.parseInt(mEditFps.getText().toString());
+            mCCVideoWriter.FPS = param_fps;
+        }
+        else{
+            param_fps = 30;
+            mCCVideoWriter.FPS = param_fps;
+        }
 
         if (mEditBitrate.getText().toString().trim().length() > 0){
             float bitrate = Float.parseFloat(mEditBitrate.getText().toString());
             bitrate = bitrate*1e6f;
+            CCLog.d(TAG, "BPP goodsol");
             mCCVideoWriter.setBitRate(bitrate);
+            mEncoderFinish = false;
             mCCVideoWriter.start();
         }
         else{
@@ -664,6 +694,7 @@ public class CodecActivity extends AppCompatActivity implements InferenceCallbac
             mEncoderFinish = false;
             mCCVideoWriter.start();
         }
+
     }
 
     public void closeEnDecoder() {

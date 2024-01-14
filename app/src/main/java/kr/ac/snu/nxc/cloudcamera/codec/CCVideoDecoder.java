@@ -8,6 +8,7 @@ import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
+import android.os.SystemClock;
 
 import java.io.IOException;
 import java.nio.BufferOverflowException;
@@ -129,7 +130,7 @@ public class CCVideoDecoder {
         }
     }
 
-    private void decodeVideoFromBuffer() {
+    private void decodeVideoFromBuffer()  {
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
         final int width = mMediaFormat.getInteger(MediaFormat.KEY_WIDTH);
         final int height = mMediaFormat.getInteger(MediaFormat.KEY_HEIGHT);
@@ -140,7 +141,16 @@ public class CCVideoDecoder {
         mInputDone = false;
         mEndOfStream = false;
         while (!mEndOfStream) {
+            long start =System.currentTimeMillis();
+            try {
+                Thread.sleep(sleepTime);
+            }
+            catch (Exception e){
+
+            }
             mDecodeHandler.post(new runDecodeThread(bufferInfo));
+            long end = System.currentTimeMillis();
+            CCLog.d(TAG, "Sleep time: " + String.valueOf(end - start));
             //putCodecInputBuffer();
             //getCodecOutputBuffer(bufferInfo);
         }
@@ -161,13 +171,8 @@ public class CCVideoDecoder {
                 putCodecInputBuffer();
                 long start = System.currentTimeMillis();
                 getCodecOutputBuffer(bufferInfo);
-                long end = System.currentTimeMillis() + 7;
+                long end = System.currentTimeMillis();
                 CCLog.i("ENDURE", String.valueOf(end-start));
-                try {
-                    Thread.sleep(Math.max(sleepTime - (end-start),0));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
             }
         }
     }
@@ -176,6 +181,10 @@ public class CCVideoDecoder {
         if (mInputDone) {
             return;
         }
+
+
+        long start = SystemClock.uptimeMillis();
+
         int inputBufferId = mMediaCodec.dequeueInputBuffer(TIMEOUT_USEC);
         CCLog.d(TAG, "dequeueInputBuffer : " + inputBufferId);
 
@@ -201,6 +210,9 @@ public class CCVideoDecoder {
                 CCLog.d(TAG, "getSampleTrackIndex : " + mMediaExtractor.getSampleTrackIndex() + " " + mMediaExtractor.getSampleTime() + " " + time_count);
             }
         }
+
+        long end = SystemClock.uptimeMillis();
+        CCLog.d(TAG, "Decoding time: " + (end-start));
     }
 
     /*
