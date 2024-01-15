@@ -111,6 +111,7 @@ public class CCVideoDecoder {
         }
         try {
             mDecodeThread = new HandlerThread(("Decode"));
+            mDecodeThread.setPriority(Thread.MAX_PRIORITY);
             mDecodeThread.start();
             mDecodeHandler = new Handler(mDecodeThread.getLooper());
 

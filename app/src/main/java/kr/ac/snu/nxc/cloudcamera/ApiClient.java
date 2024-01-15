@@ -113,59 +113,63 @@ public class ApiClient {
     }
 
     public void uploadFile (byte[] byteFile){
-
-        // do not send if queue is accumulated
-        if (call_queue_size > MAX_QUEUE_SIZE){
-            return;
-        }
-
-        UploadReceiptService service = r1.getRetrofitInstance().create(UploadReceiptService.class);
-
-        String stringValues = "stringValue";
-
-        RequestBody requestFile =
-                RequestBody.create(
-                        MediaType.parse("video/mp4"),
-                        byteFile
-                );
-
-        String item = "[1,2,4]";
-
-        MultipartBody.Part body =
-                MultipartBody.Part.createFormData("body", "frame", requestFile);
-
-        RequestBody items = RequestBody.create(MediaType.parse("application/json"), item);
-        RequestBody stringValue = RequestBody.create(MediaType.parse("text/plain"), stringValues);
-
-        Call<Object> call = service.uploadReceipt(body);
-        call_queue_size += 1;
-
-
-        call.enqueue(new Callback<Object>() {
+        new Thread(new Runnable() {
             @Override
-            public void onResponse(Call<Object> call, Response<Object> response) {
-                call_queue_size -= 1;
-                if (response.isSuccessful()){
-                    String response_body = new Gson().toJson(response.body());
-                    try {
-                        mListner.onResponse(response_body);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    CCLog.d(TAG,"Upload Success: " + response_body);
-                    //new Gson().toJson(response.body()));
-                } else {
-                    CCLog.d(TAG,"Upload Error: " + response.message());
+            public void run() {
+                // do not send if queue is accumulated
+                if (call_queue_size > MAX_QUEUE_SIZE){
+                    return;
                 }
 
+                UploadReceiptService service = r1.getRetrofitInstance().create(UploadReceiptService.class);
+
+                String stringValues = "stringValue";
+
+                RequestBody requestFile =
+                        RequestBody.create(
+                                MediaType.parse("video/mp4"),
+                                byteFile
+                        );
+
+                String item = "[1,2,4]";
+
+                MultipartBody.Part body =
+                        MultipartBody.Part.createFormData("body", "frame", requestFile);
+
+                RequestBody items = RequestBody.create(MediaType.parse("application/json"), item);
+                RequestBody stringValue = RequestBody.create(MediaType.parse("text/plain"), stringValues);
+
+                Call<Object> call = service.uploadReceipt(body);
+                call_queue_size += 1;
+
+
+                call.enqueue(new Callback<Object>() {
+                    @Override
+                    public void onResponse(Call<Object> call, Response<Object> response) {
+                        call_queue_size -= 1;
+                        if (response.isSuccessful()){
+                            String response_body = new Gson().toJson(response.body());
+                            try {
+                                mListner.onResponse(response_body);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                            CCLog.d(TAG,"Upload Success: " + response_body);
+                            //new Gson().toJson(response.body()));
+                        } else {
+                            CCLog.d(TAG,"Upload Error: " + response.message());
+                        }
+
+                    }
+                    @Override
+                    public void onFailure(Call<Object> call, Throwable t) {
+                        call_queue_size -= 1;
+                        CCLog.d(TAG,"Upload Failure" );
+                        t.printStackTrace();
+                    }
+                });
             }
-            @Override
-            public void onFailure(Call<Object> call, Throwable t) {
-                call_queue_size -= 1;
-                CCLog.d(TAG,"Upload Failure" );
-                t.printStackTrace();
-            }
-        });
+        }).start();
     }
 
     public void setListner(UploadListener Listner){ mListner = Listner; }
